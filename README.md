@@ -41,4 +41,4 @@ Kompres foto dulu (maks ~300 KB per foto) supaya cepat dibuka.
 
 ## Yang belum ada
 
-Fan Corner, Bestie Space, timeline, pengaturan, login (Firebase), dark/light toggle.
+Fan Corner, Bestie Space, timeline, pengaturan, onboarding, dark/light toggle.

@@ -1,21 +1,22 @@
-// Penyimpanan entri diary. Sekarang memakai localStorage.
-// Nanti tinggal ganti isi fungsi di bawah dengan Firebase (Firestore),
-// tanpa mengubah kode di pages/.
-const KEY = 'orion-diary:entries';
+// Penyimpanan entri diary di Firestore: users/{uid}/entries/{id}
+// Antarmuka (listEntries/addEntry/removeEntry) sama seperti versi localStorage.
+import {
+  collection, addDoc, getDocs, deleteDoc, doc, query, orderBy,
+} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+import { db } from './firebase.js';
+import { getUser } from './auth.js';
 
-const read = () => JSON.parse(localStorage.getItem(KEY) || '[]');
-const write = (entries) => localStorage.setItem(KEY, JSON.stringify(entries));
+const entriesRef = () => collection(db, 'users', getUser().uid, 'entries');
 
 export async function listEntries() {
-  return read().sort((a, b) => b.createdAt - a.createdAt);
+  const snap = await getDocs(query(entriesRef(), orderBy('createdAt', 'desc')));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 export async function addEntry({ title, text, mood }) {
-  const entry = { id: crypto.randomUUID(), title, text, mood, createdAt: Date.now() };
-  write([entry, ...read()]);
-  return entry;
+  const entry = { title, text, mood, createdAt: Date.now() };
+  const ref = await addDoc(entriesRef(), entry);
+  return { id: ref.id, ...entry };
 }
 
-export async function removeEntry(id) {
-  write(read().filter((e) => e.id !== id));
-}
+export const removeEntry = (id) => deleteDoc(doc(db, 'users', getUser().uid, 'entries', id));
