@@ -177,3 +177,14 @@ dialog.sheet.arrange{width:min(96vw,1000px)}
 .ok-chip .icon{width:14px;height:14px}
 :root[data-theme="light"] .ok-chip{background:#1f9d5a1f;color:#14633a}
 @media (max-width:760px){.arr-body{grid-template-columns:1fr}.arr-side{position:static}.arr-drop{flex-wrap:wrap}}
+
+/* Mobile (<= 560 px): buku tampil satu halaman, lebih besar dan terbaca; kontrol rapi satu baris */
+.book-panel.single .stage{--w:clamp(210px,76vw,340px);width:var(--w);overflow-x:clip}
+.book-panel.single .tilt.closed:hover{transform:none}
+@media (max-width:560px){
+  .book-panel{padding:40px 10px 24px}
+  .book-ctrl{flex-direction:column;align-items:stretch}
+  .book-ctrl .group{justify-content:space-between;width:100%}
+  .book-ctrl .group:first-child .count{flex:1;min-width:0}
+}
+.book-panel.single .open-btn.off{display:none}

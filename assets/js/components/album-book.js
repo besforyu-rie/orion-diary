@@ -7,8 +7,9 @@ import { MAX_UPLOAD_MB as MAX_PHOTO_MB, imageErrorMessage } from '../services/im
 
 export const STAR_SVG = '<svg viewBox="0 0 100 120" fill="none" stroke="#FFD86B" stroke-width=".6"><path d="M20 15 L45 40 L38 70 L62 62 L80 100 M45 40 L78 28 M38 70 L25 105"/><g fill="#FFD86B" stroke="none"><circle cx="20" cy="15" r="2"/><circle cx="45" cy="40" r="2.4"/><circle cx="78" cy="28" r="1.8"/><circle cx="38" cy="70" r="2"/><circle cx="62" cy="62" r="2"/><circle cx="80" cy="100" r="2.2"/></g></svg>';
 const pad = (n) => String(n).padStart(2, '0');
-const pageLabel = (page, total) => (page === 0 ? t('book.cover')
+const pageLabel = (page, total, single, half) => (page === 0 ? t('book.cover')
   : page === total ? t('book.end')
+  : single ? t('book.single', { a: pad(half === 'L' ? page * 2 - 1 : page * 2), n: total * 2 })
   : t('book.pages', { a: pad(page * 2 - 1), b: pad(page * 2), n: total * 2 }));
 
 const polaroid = (photo, i, rotate) => {
@@ -125,6 +126,12 @@ export function mountAlbum(root, data, opts = {}) {
   const book = $('.book'), tilt = $('.tilt'), lightbox = $('#lb'), lbImg = $('#lbimg'), capIn = $('#lbcapin');
   let page = 0, timer = null, current = null;
   if (opts.startPage > 0) page = Math.min(opts.startPage, Math.max(0, total - 1)); // mis. lompat ke foto yang baru ditambah
+  // Mobile (<= 560 px): satu halaman sekali tampil. `half` = sisi yang terlihat dari lembar terbuka: 'L' (kiri) atau 'R' (kanan).
+  const narrow = matchMedia('(max-width: 560px)');
+  let single = narrow.matches;
+  let half = page === total ? 'L' : page === 0 ? 'R' : 'L';
+  const fixHalf = () => { if (page === 0) half = 'R'; else if (page === total) half = 'L'; };
+  const panel = $('.book-panel');
   leaves.forEach((l, i) => { l.style.zIndex = i < page ? i : total - i; });
 
   function render() {
@@ -137,7 +144,8 @@ export function mountAlbum(root, data, opts = {}) {
       }
       setTimeout(() => { l.style.zIndex = i < page ? i : total - i; }, 450);
     });
-    const shift = page === 0 ? -0.5 : page === total ? 0.5 : 0; // setengah lebar halaman
+    panel.classList.toggle('single', single);
+    const shift = single ? (half === 'R' ? -0.5 : 0.5) : (page === 0 ? -0.5 : page === total ? 0.5 : 0); // setengah lebar halaman
     book.style.transform = `translateX(calc(var(--w) * ${shift}))`;
     tilt.classList.toggle('closed', page === 0);
     const openBtn = $('.open-btn');
@@ -145,15 +153,25 @@ export function mountAlbum(root, data, opts = {}) {
     openBtn.inert = page > 0;
     $('.panel-note').textContent = t(page === 0 ? 'book.noteClosed' : 'book.noteOpen');
     opts.onState?.({ page, total });
-    $('.count').textContent = pageLabel(page, total);
+    $('.count').textContent = pageLabel(page, total, single, half);
     $('[data-act=prev]').disabled = page === 0;
     $('[data-act=next]').disabled = page === total;
     if (page === total) stopSlideshow();
   }
   const go = (d) => {
-    const next = Math.max(0, Math.min(total, page + d));
-    if (next !== page && $('#sound').checked) playFlip();
-    page = next; render();
+    const before = page;
+    if (single) { // satu halaman per langkah: sampul → kiri 1 → kanan 1 → kiri 2 → ... → akhir
+      if (d > 0) {
+        if (page === 0) { page = 1; half = 'L'; }
+        else if (half === 'L' && page < total) half = 'R';
+        else if (half === 'R') { page = Math.min(total, page + 1); half = 'L'; }
+      } else if (page === total) { page = total - 1; half = 'R'; }
+      else if (half === 'R' && page > 0) half = 'L';
+      else if (page > 0) { page -= 1; half = 'R'; }
+      fixHalf();
+    } else page = Math.max(0, Math.min(total, page + d));
+    if (page !== before && $('#sound').checked) playFlip(); // bunyi hanya saat lembar benar-benar dibalik
+    render();
   };
   function stopSlideshow() { clearInterval(timer); timer = null; $('[data-act=play]').textContent = t('book.slideshow'); }
 
@@ -179,7 +197,25 @@ export function mountAlbum(root, data, opts = {}) {
     lightbox.classList.add('on');
   }
 
-  leaves.forEach((l, i) => l.addEventListener('click', (e) => { if (e.target.closest('[data-note]')) return; if (i === page) go(1); else if (i === page - 1) go(-1); }));
+  let swiped = false;
+  leaves.forEach((l, i) => l.addEventListener('click', (e) => {
+    if (e.target.closest('[data-note]') || swiped) return;
+    if (single) { if (i === (half === 'R' ? page : page - 1)) go(1); return; } // ketuk halaman = lanjut
+    if (i === page) go(1); else if (i === page - 1) go(-1);
+  }));
+  // Geser jari ke kiri = berikutnya, ke kanan = sebelumnya (hanya mode satu halaman)
+  let sx = null;
+  const stage = $('.stage');
+  stage.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
+  stage.addEventListener('touchend', (e) => {
+    if (sx === null || !single) return;
+    const dx = e.changedTouches[0].clientX - sx; sx = null;
+    if (Math.abs(dx) < 48) return;
+    swiped = true; setTimeout(() => { swiped = false; }, 350);
+    go(dx < 0 ? 1 : -1);
+  }, { passive: true });
+  const onNarrow = () => { single = narrow.matches; fixHalf(); render(); };
+  narrow.addEventListener?.('change', onNarrow);
   root.querySelectorAll('.pol').forEach((p) => p.addEventListener('click', (e) => { e.stopPropagation(); openPhoto(p.querySelector('.img')); }));
   root.addEventListener('click', (e) => {
     const act = e.target.closest?.('[data-act]')?.dataset.act;
@@ -251,5 +287,5 @@ export function mountAlbum(root, data, opts = {}) {
   fitText();
   document.fonts?.ready.then(fitText);
 
-  return () => { stopSlideshow(); document.removeEventListener('keydown', onKey); window.removeEventListener('resize', render); };
+  return () => { stopSlideshow(); document.removeEventListener('keydown', onKey); window.removeEventListener('resize', render); narrow.removeEventListener?.('change', onNarrow); };
 }

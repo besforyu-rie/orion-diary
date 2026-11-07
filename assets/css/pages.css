@@ -29,20 +29,61 @@ input[role="switch"]:focus-visible { outline: 3px solid var(--gold); outline-off
 [data-motion="reduce"] *, [data-motion="reduce"] *::before { animation: none !important; transition-duration: .01s !important; }
 @media (max-width: 760px) { .fan-cols, .persona { grid-template-columns: 1fr; } }
 
-/* Mobile: tab bawah untuk pengguna yang sudah masuk */
+/* Tata letak per lebar (acuan Figma): desktop 1440, tablet 834, mobile 390.
+   - >= 1280: kontainer melebar mengikuti frame desktop
+   - 761-1023 (tablet): menu atas dirapatkan supaya lonceng & avatar tidak turun baris
+   - <= 760 (mobile): tab bawah 5 item untuk yang sudah masuk */
+@media (min-width: 761px) {
+  .nav { flex-wrap: nowrap; }
+  .nav-links { flex-wrap: nowrap; }
+}
+@media (min-width: 761px) and (max-width: 1023px) {
+  .nav { padding-inline: 16px; gap: 8px; }
+  .nav-links { gap: 0; }
+  .nav-links a { padding: 10px 9px; font-size: 14px; white-space: nowrap; }
+  .nav-links a[aria-current="page"]::after { left: 9px; right: 9px; }
+}
+@media (min-width: 1280px) {
+  .nav { padding-inline: max(20px, calc((100vw - 1200px) / 2)); }
+  .page.wide { max-width: 1200px; }
+  .page.settings { max-width: 1120px; }
+}
+
+/* Mobile: tab bawah 5 item (Home, Diary, Albums, Fan, More) untuk pengguna yang sudah masuk */
 .tabbar { display: none; }
+.more-sheet { display: none; }
 @media (max-width: 760px) {
   [data-auth="in"] .nav-links a { display: none; }
-  body[data-auth="in"] { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
-  .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; display: flex; gap: 2px;
-    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  body[data-auth="in"] { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; display: flex; gap: 4px;
+    padding: 6px calc(8px + env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) calc(8px + env(safe-area-inset-left, 0px));
     background: var(--tabbar-bg); backdrop-filter: blur(10px); border-top: 1px solid var(--card-border); }
-  .tabbar a { flex: 1; min-width: 0; min-height: 52px; display: flex; flex-direction: column; align-items: center;
-    justify-content: center; gap: 2px; font-size: 11px; text-decoration: none; color: var(--lilac); border-radius: 14px; }
-  .tabbar a .ic { font-size: 18px; line-height: 1; }
-  .tabbar a[aria-current="page"] { background: var(--royal); color: #fff; }
-  #toasts { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+  .tabbar a, .tabbar button.tab-more { flex: 1; min-width: 44px; min-height: 56px; padding: 0 2px; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 2px; font: 700 11px/1.1 var(--font-body); text-decoration: none; color: var(--lilac); border-radius: 16px; background: transparent; }
+  .tabbar button.tab-more:hover { background: var(--soft); }
+  .tabbar .lbl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tabbar a[aria-current="page"], .tabbar button.tab-more.is-current, .tabbar button.tab-more[aria-expanded="true"] { background: var(--royal); color: #fff; }
+  .tabbar a:focus-visible, .tabbar button.tab-more:focus-visible { outline: 3px solid var(--gold); outline-offset: -3px; }
+  #toasts { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+
+  /* Lembar "Lainnya": naik dari bawah */
+  dialog.more-sheet[open] { display: block; position: fixed; inset: auto 0 0 0; margin: 0; width: 100%; max-width: none; max-height: 85vh;
+    padding: 0; border: 0; border-top: 1px solid var(--card-border); border-radius: 28px 28px 0 0; background: var(--bg); color: var(--heading);
+    box-shadow: 0 -20px 60px #000a; animation: sheet-up .28s ease-out; }
+  dialog.more-sheet::backdrop { background: #0a0420cc; }
+  .more-body { padding: 16px calc(20px + env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) calc(20px + env(safe-area-inset-left, 0px)); }
+  .more-body::before { content: ""; display: block; width: 40px; height: 4px; border-radius: 4px; background: var(--card-border); margin: 0 auto 12px; }
+  .more-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .more-head h2 { margin: 0; font-size: 22px; }
+  .more-list { display: grid; gap: 4px; margin-bottom: 12px; }
+  .more-list a { display: flex; align-items: center; gap: 14px; min-height: 52px; padding: 0 14px; border-radius: 16px; text-decoration: none; color: var(--lilac); font-weight: 700; }
+  .more-list a .icon { width: 22px; height: 22px; color: var(--accent); }
+  .more-list a:hover { background: var(--soft); }
+  .more-list a[aria-current="page"] { background: var(--soft); color: var(--heading); box-shadow: inset 3px 0 0 var(--accent); }
+  .more-list a:focus-visible { outline: 3px solid var(--gold); outline-offset: -3px; }
+  .more-out { width: 100%; }
 }
+@keyframes sheet-up { from { transform: translateY(40px); opacity: 0; } }
 
 /* Bestie Space */
 .page.narrow { max-width: 600px; }
@@ -51,7 +92,6 @@ input[role="switch"]:focus-visible { outline: 3px solid var(--gold); outline-off
 .reply .hand { font-size: 22px; color: var(--pink); }
 .field textarea { resize: vertical; }
 .wish-form input[readonly] { color: var(--lilac); }
-@media (max-width: 760px) { .tabbar a { font-size: 10px; } }
 
 /* Pengaturan: tema & ekspor */
 .themes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }

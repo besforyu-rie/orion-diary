@@ -65,7 +65,7 @@ export async function renderDashboard(root) {
       el('h3', {}, `${e.mood} ${e.title}`), el('time', {}, formatDate(e.createdAt)),
       el('p', {}, e.text.length > 90 ? `${e.text.slice(0, 90)}…` : e.text)));
 
-  root.append(el('section', { className: 'page' },
+  root.append(el('section', { className: 'page wide' },
     el('div', { className: 'row' },
       el('div', {}, el('h1', {}, t('dash.hey', { name })), el('p', {}, formatDate(Date.now()))),
       el('a', { className: 'btn', href: '#/write' }, t('dash.write'))),

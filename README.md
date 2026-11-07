@@ -127,3 +127,12 @@ Terpisah dari kotak ucapan ulang tahun. Ucapan (Kirim, Inbox, Dinding) tetap sep
 - **Menyimpan ulang aman**: entri memakai ID yang dibuat sekali per sesi menulis (`newEntryId` di `services/storage.js`), jadi coba ulang menimpa entri yang sama dan tidak membuat entri dobel.
 - **Sukses**: setelah "Simpan entri", editor diganti kartu "Satu kenangan, tersimpan aman" dengan tombol "Lihat entri" (sebelumnya langsung pindah halaman).
 - **404** (`pages/not-found.js`): "Ups, sedikit keluar orbit." dengan Pip di antara angka 4 dan 4; tombol "Antar aku pulang" (ke Dashboard kalau sudah login) dan "Kembali ke diary-ku".
+
+## Mobile, tablet & tema (E3)
+
+- **Tiga lebar acuan**: desktop 1440 (kontainer `.page.wide` melebar jadi 1200 px mulai 1280 px), tablet 834 (menu atas dirapatkan dan tidak turun baris di 761–1023 px), mobile 390 (≤ 760 px). Aturannya ada di awal bagian "Tata letak per lebar" di `css/pages.css`.
+- **Tab bawah 5 item** (≤ 760 px, hanya setelah login): Beranda, Diary, Album, Fan, **Lainnya**. "Lainnya" membuka lembar bawah (`<dialog id="more-sheet">`, `components/more-sheet.js`) berisi Kenangan, Bestie Space, Notifikasi, Ucapan, Dinding, Pengaturan, dan Keluar. Fokus terkunci di dalam lembar, Esc/klik latar/tombol × menutup, fokus kembali ke tab "Lainnya". Tab "Lainnya" menyala di halaman-halaman itu (`data-group` di `index.html`, diatur `router.js`). Padding area aman (poni/home bar) ada di bawah dan di kiri-kanan.
+- **Album satu halaman** (≤ 560 px): buku menampilkan satu sisi sekali tampil, lebih besar, dengan penomoran "Halaman 03 dari 8". Ketuk halaman atau tombol Berikutnya = lanjut, geser jari kiri/kanan = maju/mundur. Di layar lebih lebar tetap dua halaman ("03 — 04 dari 8"). Pindah lebar (mis. memutar ponsel) tidak menghilangkan posisi halaman.
+- **Tema terang**: skrip kecil di `index.html` (sebelum halaman tampil) sekarang membaca kunci `orion-device`, sama dengan `services/prefs.js`. Sebelumnya membaca kunci lama, jadi tema terang/bahasa Inggris sempat berkedip gelap/Indonesia setiap halaman dibuka.
+- Perapian lain: gambar polaroid hero tidak lagi melewati tepi di 834 px, tautan kecil di bawah form Login tampil sebagai teks (bukan tombol ungu), dan baris tautan bagian di Beranda disembunyikan di ponsel (seperti Figma: logo + tombol saja).
+- Pengecekan: 18 halaman × lebar 360/390/430/834/1440 × tema gelap/terang = 180 kombinasi, tidak ada halaman yang bergeser ke samping.

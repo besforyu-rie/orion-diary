@@ -77,7 +77,7 @@ export async function renderDiary(root) {
         el('p', {}, t('diary.empty')))]));
   }
 
-  root.append(el('section', { className: 'page' },
+  root.append(el('section', { className: 'page wide' },
     el('div', { className: 'row' }, el('h1', {}, t('diary.title')), el('a', { className: 'btn', href: '#/write' }, t('diary.new'))),
     el('div', { className: 'two-col' }, el('div', {}, calBox, el('div', { style: 'height:16px' }), tagBox), el('div', {}, search, list))));
   draw();

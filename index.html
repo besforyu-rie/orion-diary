@@ -19,10 +19,12 @@
   <script>
     // Terapkan tema sebelum halaman tampil, supaya tidak berkedip gelap lalu terang.
     try {
-      const p = JSON.parse(localStorage.getItem('orion-prefs')) || {};
+      const read = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+      const p = read('orion-device') || read('orion-prefs') || {}; // sama dengan services/prefs.js
       const light = p.theme === 'light' || (p.theme === 'system' && matchMedia('(prefers-color-scheme: light)').matches);
       document.documentElement.dataset.theme = light ? 'light' : 'dark';
       document.documentElement.lang = p.lang === 'en' ? 'en' : 'id';
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', light ? '#F4EFFF' : '#1B1035');
     } catch (e) { /* abaikan */ }
   </script>
 </head>
@@ -60,12 +62,27 @@
   <nav class="tabbar user-only" data-i18n-aria="nav.bottom" aria-label="Menu bawah">
     <a href="#/dashboard" data-route="/dashboard"><span class="ic"><svg class="icon" aria-hidden="true"><use href="#i-home"/></svg></span><span class="lbl" data-i18n="tab.home">Beranda</span></a>
     <a href="#/diary" data-route="/diary" data-also="/write /entry"><span class="ic"><svg class="icon" aria-hidden="true"><use href="#i-book-heart"/></svg></span><span class="lbl" data-i18n="tab.diary">Diary</span></a>
-    <a href="#/timeline" data-route="/timeline"><span class="ic"><svg class="icon" aria-hidden="true"><use href="#i-history"/></svg></span><span class="lbl" data-i18n="tab.timeline">Kenangan</span></a>
     <a href="#/albums" data-route="/albums" data-also="/album"><span class="ic"><svg class="icon" aria-hidden="true"><use href="#i-images"/></svg></span><span class="lbl" data-i18n="tab.albums">Album</span></a>
     <a href="#/fan" data-route="/fan"><span class="ic"><svg class="icon" aria-hidden="true"><use href="#i-sparkles"/></svg></span><span class="lbl" data-i18n="tab.fan">Fan</span></a>
-    <a href="#/bestie" data-route="/bestie"><span class="ic"><svg class="icon" aria-hidden="true"><use href="#i-mail-heart"/></svg></span><span class="lbl" data-i18n="tab.bestie">Bestie</span></a>
-    <a href="#/settings" data-route="/settings"><span class="ic"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg></span><span class="lbl" data-i18n="tab.settings">Atur</span></a>
+    <button id="tab-more" class="tab-more" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="more-sheet" data-group="/timeline /bestie /join /settings /ucapan /notifications /dinding /welcome"><span class="ic"><svg class="icon" aria-hidden="true"><use href="#i-more"/></svg></span><span class="lbl" data-i18n="tab.more">Lainnya</span></button>
   </nav>
+  <dialog id="more-sheet" class="more-sheet user-only" aria-labelledby="more-title">
+    <div class="more-body">
+      <div class="more-head">
+        <h2 id="more-title" data-i18n="more.title">Lainnya</h2>
+        <button type="button" class="ghost" data-close data-i18n-aria="more.close" aria-label="Tutup"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="more-list">
+        <a href="#/timeline" data-route="/timeline"><svg class="icon" aria-hidden="true"><use href="#i-history"/></svg><span data-i18n="nav.timeline">Kenangan</span></a>
+        <a href="#/bestie" data-route="/bestie"><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg><span data-i18n="nav.bestie">Bestie Space</span></a>
+        <a href="#/notifications" data-route="/notifications"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg><span data-i18n="nav.bell">Notifikasi</span></a>
+        <a href="#/ucapan" data-route="/ucapan"><svg class="icon" aria-hidden="true"><use href="#i-mail-heart"/></svg><span data-i18n="nav.wishes">Ucapan</span></a>
+        <a href="#/dinding" data-route="/dinding"><svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg><span data-i18n="nav.wall">Dinding</span></a>
+        <a href="#/settings" data-route="/settings"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span data-i18n="nav.settings">Pengaturan</span></a>
+      </div>
+      <button id="logout-more" type="button" class="ghost more-out" data-i18n="nav.logout">Keluar</button>
+    </div>
+  </dialog>
   <div id="toasts" aria-live="polite"></div>
   <script type="module" src="assets/js/main.js"></script>
 </body>

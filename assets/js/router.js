@@ -44,6 +44,8 @@ export function startRouter(routes, outlet) {
       if (a.dataset.route === path || (a.dataset.also ?? '').split(' ').includes(path)) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
     });
+    // Tombol "Lainnya": bukan tautan, jadi ditandai lewat kelas (bukan aria-current="page").
+    document.querySelectorAll('[data-group]').forEach((b) => b.classList.toggle('is-current', b.dataset.group.split(' ').includes(path)));
   }
 
   window.addEventListener('hashchange', show);

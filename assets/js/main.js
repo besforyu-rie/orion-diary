@@ -23,6 +23,7 @@ import { renderSpace } from './pages/space.js';
 import { renderJoin } from './pages/join.js';
 import { renderNotifications } from './pages/notifications.js';
 import { initNavUser } from './components/nav-user.js';
+import { initMoreSheet } from './components/more-sheet.js';
 import { translateStatic, t } from './i18n.js';
 
 /** Halaman yang butuh login: kalau belum login, arahkan ke #/login. */
@@ -35,8 +36,9 @@ const protectedPage = (render) => (root, params) => {
   return render(root, params);
 };
 
-const logoutButton = document.getElementById('logout');
-logoutButton.onclick = async () => { await logout(); showToast(t('common.bye')); location.hash = '#/'; };
+for (const id of ['logout', 'logout-more']) { // menu avatar (desktop) dan lembar "Lainnya" (mobile)
+  document.getElementById(id).onclick = async () => { await logout(); showToast(t('common.bye')); location.hash = '#/'; };
+}
 const setAuthState = (user) => { document.body.dataset.auth = user ? 'in' : 'out'; };
 onUserChange(setAuthState);
 onUserChange((user) => { syncPrefsFor(user); }); // ganti akun = ganti preferensi (nama, pengingat, dst.)
@@ -48,6 +50,7 @@ await authReady;
 await Promise.race([prefsReady(), new Promise((r) => setTimeout(r, 2500))]); // tunggu data akun, tapi jangan lebih dari 2,5 detik
 setAuthState(getUser());
 initNavUser();
+initMoreSheet();
 
 startRouter(
   {
