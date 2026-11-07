@@ -1,6 +1,5 @@
 import {
   onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail,
-  GoogleAuthProvider, signInWithPopup, getAdditionalUserInfo,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import { auth } from './firebase.js';
 import { t } from '../i18n.js';
@@ -25,8 +24,3 @@ export const authMessage = (err) => {
 };
 export const resetPassword = (email) => sendPasswordResetEmail(auth, email);
 
-/** Masuk dengan Google. Hasilnya menyertakan isNew (akun baru) supaya diajak berkenalan dulu. */
-export async function loginWithGoogle() {
-  const cred = await signInWithPopup(auth, new GoogleAuthProvider());
-  return { user: cred.user, isNew: !!getAdditionalUserInfo(cred)?.isNewUser };
-}

@@ -3,7 +3,9 @@
 import {
   loadMySpace, createSpace, updateSpace, addPost, deletePost, setHeart, listNotes, addNote, deleteNote,
   createInvite, listPendingInvites, cancelInvite, inviteLink, INVITE_DAYS, MAX_POST_CHARS, MAX_NOTE_CHARS,
+  createSharedAlbum, listRecentSharedPhotos, memberLabel,
 } from '../services/spaces.js';
+import { pageCount, STAR_SVG } from '../components/album-book.js';
 import { getUser } from '../services/auth.js';
 import { getPrefs } from '../services/prefs.js';
 import { showToast } from '../components/toast.js';
@@ -22,7 +24,7 @@ const when = (ts) => {
   return d.toDateString() === now.toDateString() ? t('sp.today', { time }) : `${formatDate(ts)} · ${time}`;
 };
 
-export async function renderSpace(root) {
+export async function renderSpace(root, params) {
   let space;
   try {
     space = await loadMySpace();
@@ -34,6 +36,7 @@ export async function renderSpace(root) {
   }
   const page = el('section', { className: 'page wide sp-page' });
   root.append(page);
+  let tab = params?.get('tab') === 'album' ? 'album' : 'diary';
 
   async function reload() {
     space = await loadMySpace();
@@ -77,7 +80,7 @@ export async function renderSpace(root) {
           el('div', { className: 'sp-avatars' }, ...space.members.map((m, i) => avatar(m.name, i))),
           el('div', { className: 'sp-head-text' },
             el('h2', {}, space.tagline || space.name),
-            el('p', {}, t('sp.meta', { m: space.members.length, p: space.posts.length }))),
+            el('p', {}, `${t('sp.meta', { m: space.members.length, p: space.posts.length })} · ${albumCount()}`)),
           ...(settings ? [settings] : [])),
         el('p', { className: 'sp-private' }, t('sp.private'))),
     ];
@@ -217,6 +220,92 @@ export async function renderSpace(root) {
     };
   }
 
+  /* ---------- album bersama ---------- */
+  const albumHref = () => `#/album?space=${encodeURIComponent(space.id)}`;
+  const albumCount = () => t(space.album ? 'sp.metaAlbum1' : 'sp.metaAlbumN', { n: space.album ? 1 : 0 });
+
+  function openCreateAlbum() {
+    const title = el('input', { maxLength: 80, autocomplete: 'off', required: true, placeholder: t('sp.alTitlePh') });
+    const error = el('p', { role: 'alert', className: 'form-error' });
+    const submit = el('button', { type: 'submit' }, t('sp.alCreate'));
+    const cancel = el('button', { type: 'button', className: 'ghost' }, t('common.cancel'));
+    const form = el('form', { noValidate: true }, el('h2', {}, t('sp.alCreateTitle')),
+      el('p', { className: 'hint-text' }, t('sp.alCreateHint', { space: space.name })),
+      field(t('sp.alTitleLabel'), title), error, el('div', { className: 'actions' }, cancel, submit));
+    const dialog = makeDialog('', t('sp.alCreateTitle'), form);
+    cancel.onclick = () => dialog.close();
+    title.focus();
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      if (!title.value.trim()) { error.textContent = t('sp.alTitleReq'); title.focus(); return; }
+      submit.disabled = true; error.textContent = '';
+      const now = new Date();
+      const date = `${now.toLocaleDateString(locale(), { month: 'long' })}, ${now.getFullYear()}`;
+      try {
+        await createSharedAlbum(space.id, { title: title.value.trim(), date });
+        dialog.close(); showToast(t('sp.alCreated'));
+        location.hash = albumHref(); // langsung ke bukunya, siap diisi foto
+      } catch (err) { console.error(err); error.textContent = `${t('sp.fail')} (${errCode(err)})`; submit.disabled = false; }
+    };
+  }
+
+  /** Kartu di sisi kanan: sampul buku, jumlah foto dan halaman, penambah terakhir, tombol buka. Belum ada album: ajakan membuat. */
+  function albumPanel() {
+    const a = space.album;
+    if (!a) {
+      const create = el('button', { type: 'button' }, icon('plus'), t('sp.alCreate'));
+      create.onclick = openCreateAlbum;
+      return el('div', { className: 'card sp-album' }, el('h2', {}, t('sp.alNoneTitle')),
+        el('p', { className: 'hint-text' }, t('sp.alNoneText')), create);
+    }
+    const n = a.photoCount ?? 0;
+    const cover = el('div', { className: 'shelf-book' });
+    cover.innerHTML = `<div class="face cover"><div class="in"><small></small>${STAR_SVG}<h2 style="margin-top:34cqh"></h2><em></em></div></div>`;
+    cover.querySelector('small').textContent = memberLabel(space.members);
+    cover.querySelector('h2').textContent = a.title;
+    cover.querySelector('em').textContent = a.date ? `${a.date} ✦` : '✦';
+    const stage = el('a', { className: 'shelf-stage', href: albumHref(), tabIndex: -1 }, cover);
+    stage.setAttribute('aria-hidden', 'true'); // yang bisa difokus cukup tombol "Open our album"
+    const meta = [
+      t(n === 1 ? 'albums.photo1' : 'albums.photoN', { n }),
+      t('albums.pages', { n: pageCount({ photoCount: n, letter: [] }) }),
+      a.lastPhotoByName ? t('sp.alLast', { who: a.lastPhotoByName }) : '',
+    ].filter(Boolean).join(' · ');
+    return el('div', { className: 'card sp-album' }, el('h2', {}, a.title), stage,
+      el('p', { className: 'sp-album-meta' }, meta),
+      el('a', { className: 'btn ghost', href: albumHref() }, icon('book-open'), t('sp.alOpen')));
+  }
+
+  /** Tab "Our album": foto yang baru ditambahkan (maks. 6), dimuat setelah halaman tampil. */
+  function albumTab() {
+    const box = el('div', { className: 'sp-album-tab' });
+    if (!space.album) {
+      const create = el('button', { type: 'button' }, icon('plus'), t('sp.alCreate'));
+      create.onclick = openCreateAlbum;
+      box.append(el('p', { className: 'tl-none' }, t('sp.alNone')), el('div', {}, create));
+      return box;
+    }
+    const grid = el('ul', { className: 'sp-recent', 'aria-busy': 'true' });
+    const add = el('a', { className: 'btn', href: albumHref() }, icon('image-plus'), t('album.addPhotos'));
+    const open = el('a', { className: 'btn ghost', href: albumHref() }, icon('book-open'), t('sp.alOpen'));
+    box.append(el('h2', { className: 'sp-recent-title' }, t('sp.alRecent')), grid, el('div', { className: 'sp-actions' }, add, open));
+    if (!(space.album.photoCount > 0)) {
+      grid.replaceWith(el('p', { className: 'tl-none' }, t('sp.alNoPhotos')));
+      return box;
+    }
+    listRecentSharedPhotos(space.id).then((list) => {
+      grid.replaceChildren(...list.map((p) => {
+        const alt = p.caption || t('sp.alPhotoBy', { who: p.addedByName });
+        const link = el('a', { href: albumHref(), 'aria-label': alt }, el('img', { src: p.src, alt: '', loading: 'lazy' }));
+        return el('li', {}, link, el('small', {}, `${p.addedByName} · ${formatDate(p.createdAt)}`));
+      }));
+    }).catch((err) => {
+      console.error(err);
+      grid.replaceWith(el('p', { className: 'tl-none' }, t('sp.alLoadFail')));
+    }).finally(() => grid.removeAttribute('aria-busy'));
+    return box;
+  }
+
   /* ---------- undang sahabat ---------- */
   function invitePanel() {
     const email = el('input', { type: 'email', autocomplete: 'off', required: true, placeholder: 'mira@example.com' });
@@ -301,15 +390,21 @@ export async function renderSpace(root) {
     if (!space) return drawCreate();
     const share = el('button', { type: 'button' }, icon('plus'), t('sp.share'));
     share.onclick = openNewPost;
-    const tab = el('button', { type: 'button', className: 'ghost' }, `${t('sp.tabDiary')} · ${space.posts.length}`);
-    tab.setAttribute('aria-pressed', 'true');
+    const tabs = [['diary', `${t('sp.tabDiary')} · ${space.posts.length}`], ['album', t('sp.tabAlbum')]].map(([key, label]) => {
+      const b = el('button', { type: 'button', className: 'ghost' }, label);
+      b.setAttribute('aria-pressed', String(tab === key));
+      b.onclick = () => { tab = key; draw(); };
+      return b;
+    });
     page.replaceChildren(...header(),
-      el('div', { className: 'tl-tabs' }, tab),
+      el('div', { className: 'tl-tabs', role: 'group', 'aria-label': t('sp.tabsLabel') }, ...tabs),
       el('div', { className: 'tl-layout' },
-        el('div', { className: 'sp-feed' },
-          ...(space.posts.length ? space.posts.map(postCard) : [el('p', { className: 'tl-none' }, t('sp.empty'))]),
-          el('div', {}, share)),
-        el('aside', { className: 'tl-side' }, invitePanel(),
+        tab === 'album'
+          ? albumTab()
+          : el('div', { className: 'sp-feed' },
+            ...(space.posts.length ? space.posts.map(postCard) : [el('p', { className: 'tl-none' }, t('sp.empty'))]),
+            el('div', {}, share)),
+        el('aside', { className: 'tl-side' }, albumPanel(), invitePanel(),
           el('p', {}, el('a', { href: '#/ucapan' }, t('sp.toWishes'))))));
   }
   draw();

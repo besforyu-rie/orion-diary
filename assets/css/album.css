@@ -37,8 +37,10 @@ background:radial-gradient(1px 1px at 20% 20%,#fff,transparent),radial-gradient(
 .g5{background-image:linear-gradient(140deg,#3a1f78,#B79CFF)}
 .hint{position:absolute;bottom:-34px;left:0;right:0;text-align:center;font:700 22px Caveat;color:var(--pink);transition:opacity .4s}
 .hint.off{opacity:0}
-#lb{position:fixed;inset:0;background:#0a0420e6;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:10;padding:20px}
-#lb.on{display:flex}
+dialog#lb{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;border:0;color:inherit;background:#0a0420e6;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:10;padding:20px}
+dialog#lb[open]{display:flex}
+#lb::backdrop{background:transparent}
+.pol:focus-visible{outline:3px solid var(--gold);outline-offset:6px}
 #lb .card{background:#fff;padding:14px 14px 8px;width:min(86vw,420px);transform:rotate(-2deg);box-shadow:0 20px 60px #000}
 #lb .img{height:min(55vh,400px);display:grid}
 #lb p{margin:8px 0 0;font:700 28px Caveat;color:var(--ink);text-align:center}
@@ -188,3 +190,8 @@ dialog.sheet.arrange{width:min(96vw,1000px)}
   .book-ctrl .group:first-child .count{flex:1;min-width:0}
 }
 .book-panel.single .open-btn.off{display:none}
+
+/* Album bersama: siapa yang menambahkan foto (penampil foto) */
+#lb .card .lb-by{margin:2px 0 6px;font:700 13px var(--font-body);color:var(--ink);opacity:.7;text-align:center}
+/* Atribut hidden di penampil foto harus menang atas display tombol (hapus / ganti foto hanya untuk pemilik fotonya) */
+#lb [hidden]{display:none!important}

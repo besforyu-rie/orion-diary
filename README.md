@@ -88,7 +88,11 @@ Terpisah dari kotak ucapan ulang tahun. Ucapan (Kirim, Inbox, Dinding) tetap sep
 - Undangan: isi email dan pesan, "Lihat undangan" (pratinjau), lalu "Buat undangan". Web statis ini tidak bisa mengirim email sendiri, jadi hasilnya berupa tautan yang disalin atau dibuka lewat aplikasi email. Undangan berlaku 7 hari, hanya bisa diterima akun dengan email yang sama, dan bisa dibatalkan.
 - Tautan undangan `#/join?t=...` (`pages/join.js`): sahabat masuk (atau mendaftar), melihat ruangnya, lalu memilih "Gabung". Kalau belum login, ia dibawa kembali ke tautan itu setelah masuk.
 - Data: `spaces/{id}` (+ `members`, `posts`, `posts/{id}/notes`), `spaceInvites/{token}`, dan penunjuk `users/{uid}/spaces/{id}`. Aturannya di `firestore.rules` — **tempel ulang ke Firebase Console dan Publish** setelah memperbarui kode.
-- Belum ada: tab "Our album" (album bersama) dan foto di cerita bersama. Itu langkah berikutnya.
+- **Album bersama (langkah 19, D2)**: tab "Album kami", kartu sampul buku di sisi kanan (judul, jumlah foto, halaman, "Foto terakhir ditambahkan …", tombol "Buka album kami"), dan ajakan "Buat album kami" kalau belum ada. Satu album per ruang, disimpan di `spaces/{id}/albums/main` dengan foto di sub-koleksi `photos` (dikecilkan di browser seperti album pribadi, tanpa Firebase Storage). Semua anggota boleh menambah foto (maks. 100); keterangan dan hapus hanya untuk foto yang kamu tambahkan sendiri; judul diganti pembuat album atau pembuat ruang. Bukunya memakai halaman album yang sama lewat `#/album?space={id}`; "Susun", halaman teks, surat, dan "Ganti foto" belum ada di album bersama. Urutan foto = urutan ditambahkan. Album bersama juga muncul di rak album (filter "Dibagikan", lencana nama ruang).
+- **Sinyal lonceng**: tiap kali anggota menambah foto, satu dokumen `spaces/{id}/albumActivity/*` dicatat (`{ authorId, authorName, count }`), dan anggota lain melihat "Alya menambahkan 4 kenangan ke albummu" di Notifikasi (ikut pilihan "Bestie" di Pengaturan).
+- Hapus akun ikut menghapus foto dan catatan aktivitas yang kamu tambahkan di album bersama (`removeMyAlbumTraces`). Keluar dari ruang tanpa hapus akun tidak menghapusnya.
+- **Wajib: tempel ulang `firestore.rules` ke Firebase Console dan Publish** (aturan baru: `albums`, `albums/main/photos`, `albumActivity`). Tanpa ini membuat album dan menambah foto gagal.
+- Belum ada: foto di cerita bersama.
 
 ## Editor entri (langkah 10)
 
@@ -111,6 +115,15 @@ Terpisah dari kotak ucapan ulang tahun. Ucapan (Kirim, Inbox, Dinding) tetap sep
 - Status "sudah dibaca" disimpan di preferensi akun (`notifRead`, `wishSeenAt`) dan ikut tersinkron. Pilihan jenis sinyal (stream, bestie, tonggak) ada di Pengaturan → Notifikasi.
 - Sinyal hanya muncul di dalam aplikasi. Tidak ada push, email, atau "jam tenang" (frame Figma menyebutnya, tapi tanpa server tidak ada yang bisa dibungkam).
 - **Wajib: Publish ulang `firestore.rules`.** Aturan undangan ditambah dua hal: sahabat boleh melihat undangan yang ditujukan ke emailnya sendiri, dan boleh menolaknya (`status: 'declined'`). Tanpa ini, kartu undangan tidak muncul dan tombol Tolak gagal.
+
+## Baca entri, daftar Diary, Dashboard (langkah 18, digabung dari langkah 11)
+
+- **Baca entri** (`#/entry?id=…`, `pages/entry.js`, `css/entry.css`): kertas krem dengan polaroid bertape, tombol "Edit entry" dan menu "More" (bagikan salinan, hapus). "Edit entry" membuka editor yang sama (`#/write?edit=…`) dengan isi yang sudah ada; simpan memperbarui entri (`updateEntry` di `services/storage.js`), tanpa draf lokal.
+- **Reaksi dan catatan sahabat**: hanya untuk halaman yang dibagikan sebagai salinan ke Bestie Space (judul, tulisan, mood; tanpa foto). Salinan itu cerita biasa di `spaces/{id}/posts`; entri mencatat penunjuknya di `sharedTo`. Reaksi disimpan sebagai daftar uid `hearts` / `stars` / `moons`. **Tempel ulang `firestore.rules` ke Firebase Console dan Publish**, supaya ✦ dan ☾ bisa tersimpan.
+- **Daftar Diary** (`pages/diary.js`): pencarian, Calendar/List, filter mood dan privasi, label dengan jumlah, foto kecil dimuat saat mendekati layar (`getEntryCover`). Keadaan kosong dan "tidak ada hasil" memakai kartu E2.
+- **Dashboard** (`pages/dashboard.js`): perasaan harian (berlaku satu hari), hitung mundur, tiga kartu angka, tiga halaman terbaru, dan pertanyaan malam ini. Tombol "Reminder on" baru menyimpan pilihan; belum ada pemberitahuannya di lonceng.
+- Bagian yang dipakai bersama (nama mood, label privasi, kartu entri, rentetan hari) ada di `components/entry-card.js`.
+- Penyesuaian saat digabung: editor tetap memakai ID entri tetap dan kartu "A memory, safely kept" untuk entri baru, sedangkan mode ubah kembali ke halaman baca setelah simpan; atribut `aria-*` ditulis sebagai atribut; tautan kartu entri dikecualikan dari aturan 44 px di `a11y.css`; Google login tetap dicabut.
 
 ## Pengaturan (E1)
 
@@ -136,3 +149,13 @@ Terpisah dari kotak ucapan ulang tahun. Ucapan (Kirim, Inbox, Dinding) tetap sep
 - **Tema terang**: skrip kecil di `index.html` (sebelum halaman tampil) sekarang membaca kunci `orion-device`, sama dengan `services/prefs.js`. Sebelumnya membaca kunci lama, jadi tema terang/bahasa Inggris sempat berkedip gelap/Indonesia setiap halaman dibuka.
 - Perapian lain: gambar polaroid hero tidak lagi melewati tepi di 834 px, tautan kecil di bawah form Login tampil sebagai teks (bukan tombol ungu), dan baris tautan bagian di Beranda disembunyikan di ponsel (seperti Figma: logo + tombol saja).
 - Pengecekan: 18 halaman × lebar 360/390/430/834/1440 × tema gelap/terang = 180 kombinasi, tidak ada halaman yang bergeser ke samping.
+
+## Aksesibilitas & gerak (langkah 17, E4)
+
+- `css/a11y.css`: ukuran sentuh minimal 44 x 44 px (menu atas, logo, tautan mandiri, kalender Diary, chip label), fokus 3 px di semua elemen interaktif, kontras placeholder, penanda hari berentri di kalender (titik, bukan hanya warna), dan semua aturan gerak.
+- `utils.js` `el()`: kunci `aria-*` dan `data-*` kini dipasang sebagai atribut (sebelumnya jadi properti JS biasa, sehingga `aria-live`, `aria-label`, dan `aria-hidden` tidak sampai ke pembaca layar).
+- Tautan "Lewati ke konten" tidak lagi mengubah hash (dulu router menganggapnya halaman 404); fokus pindah ke `<main>`. Setelah pindah halaman, fokus tidak hilang dan judul tab mengikuti judul halaman.
+- Penampil foto album memakai `<dialog>` bawaan (fokus terkunci, Esc menutup, fokus kembali ke polaroid). Polaroid yang terlihat bisa difokus dan dibuka dengan Enter/Spasi.
+- Bilah alat editor: satu perhentian tab, panah kiri/kanan/Home/End berpindah.
+- Gerak: `services/motion.js` (`motionOK()`) membaca `prefers-reduced-motion` dan sakelar "Kurangi gerakan". Kalau salah satu aktif: tanpa kelip bintang, goyang Pip, confetti, dan tilt album. Tilt album (±4°) hanya untuk pointer halus (mouse); confetti sekali 600 ms saat entri tersimpan.
+- Login tanpa Google (Firebase versi gratis): tombol dan kodenya dicabut.

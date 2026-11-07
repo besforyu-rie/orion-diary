@@ -2,7 +2,12 @@ import { locale } from './i18n.js';
 
 /** Buat elemen DOM dengan aman (teks tidak diparse sebagai HTML). */
 export function el(tag, props = {}, ...children) {
-  const node = Object.assign(document.createElement(tag), props);
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(props)) {
+    // 'aria-*' dan 'data-*' harus jadi atribut; kalau lewat properti JS, pembaca layar tidak melihatnya.
+    if (key.startsWith('aria-') || key.startsWith('data-')) node.setAttribute(key, value);
+    else node[key] = value;
+  }
   node.append(...children);
   return node;
 }

@@ -1,6 +1,12 @@
 // Halaman satu album: kepala halaman (judul, meta, tombol aksi) + buku 3D.
 import { mountAlbum, pageCount } from '../components/album-book.js';
 import { loadAlbum, replacePhotoImage, updatePhoto, addPhoto, removePhoto, MAX_PHOTOS } from '../services/albums.js';
+import {
+  loadSharedAlbum, addSharedPhoto, updateSharedPhoto, removeSharedPhoto, renameSharedAlbum, logAlbumActivity,
+} from '../services/spaces.js';
+import { getUser } from '../services/auth.js';
+import { getPrefs } from '../services/prefs.js';
+import { field, makeDialog } from '../components/dialog.js';
 import { openEditAlbum, openNoteDialog, openArrange } from '../components/album-dialogs.js';
 import { MAX_UPLOAD_MB, imageErrorMessage } from '../services/image.js';
 import { showToast } from '../components/toast.js';
@@ -10,9 +16,15 @@ import { el, icon } from '../utils.js';
 const IMAGE_NAME = /\.(jpe?g|png|webp|hei[cf])$/i; // HEIC kadang tidak punya tipe MIME
 const count = (n, one, many) => t(n === 1 ? one : many, { n });
 
+const myName = () => getPrefs().displayName || (getUser().email ?? '').split('@')[0] || t('name.fallback');
+
+// Satu halaman untuk dua jenis album: album pribadi (#/album?id=…) dan album bersama di Bestie Space (#/album?space=…).
 export async function renderAlbum(root, params) {
-  let album = await loadAlbum(params.get('id'));
-  if (!album) { location.hash = '#/albums'; return; }
+  const spaceId = params.get('space');
+  const shared = Boolean(spaceId);
+  const fetchAlbum = (id) => (shared ? loadSharedAlbum(spaceId) : loadAlbum(id));
+  let album = await fetchAlbum(params.get('id'));
+  if (!album) { location.hash = shared ? '#/bestie?tab=album' : '#/albums'; return; }
 
   const crumb = el('p', { className: 'album-meta' });
   const drawMeta = () => {
@@ -22,7 +34,7 @@ export async function renderAlbum(root, params) {
       t('albums.pages', { n: pageCount(album) }),
       album.shared ? (album.sharedLabel || t('albums.shared')) : t('albums.onlyMe'),
     ].filter(Boolean);
-    crumb.replaceChildren(el('a', { href: '#/albums' }, t('nav.albums')), ` / ${parts.join(' · ')}`);
+    crumb.replaceChildren(shared ? el('a', { href: '#/bestie?tab=album' }, t('nav.bestie')) : el('a', { href: '#/albums' }, t('nav.albums')), ` / ${parts.join(' · ')}`);
   };
   drawMeta();
 
@@ -46,26 +58,33 @@ export async function renderAlbum(root, params) {
         onDeletePhoto: deletePhoto,
         onEditNote: (nid) => openNoteDialog(album, album.items.find((i) => i.id === nid), { onSaved: reload }),
       } : {}),
+      // Album bersama: keterangan dan hapus hanya untuk foto yang kutambahkan sendiri; ganti gambar tidak ada.
+      ...(shared ? {
+        canChange: false,
+        canEdit: (pid) => album.items.find((i) => i.id === pid)?.addedBy === getUser()?.uid,
+        onSaveCaption: (pid, caption) => updateSharedPhoto(spaceId, pid, { caption }),
+        onDeletePhoto: deletePhoto,
+      } : {}),
     });
   }
   mount();
 
   /** Muat ulang album dari Firestore lalu pasang bukunya lagi (startPage: undefined = tetap di halaman sekarang). */
   async function reload(startPage = currentPage) {
-    album = await loadAlbum(album.id);
+    album = await fetchAlbum(album.id);
     heading.textContent = album.cover.title;
     drawMeta();
     syncButtons();
     mount(startPage);
   }
   async function deletePhoto(pid) {
-    try { await removePhoto(album.id, pid); showToast(t('book.deleted')); await reload(); }
+    try { await (shared ? removeSharedPhoto(spaceId, pid) : removePhoto(album.id, pid)); showToast(t('book.deleted')); await reload(); }
     catch (err) { console.error(err); showToast(t('book.saveFail'), 'error'); }
   }
 
   let syncButtons = () => {};
   const actions = el('div', { className: 'album-actions' });
-  if (album.editable) {
+  if (album.editable || shared) {
     const status = el('p', { className: 'album-status', role: 'status' });
     const input = el('input', { type: 'file', multiple: true, hidden: true, accept: 'image/jpeg,image/png,image/webp,image/heic,image/heif' });
     const addBtn = el('button', { type: 'button', className: album.photoCount ? 'ghost' : '' }, icon('image-plus'), t('album.addPhotos'));
@@ -91,17 +110,19 @@ export async function renderAlbum(root, params) {
       let added = 0, failed = 0, lastErr = null;
       for (const [i, file] of ok.entries()) {
         status.textContent = t('album.adding', { i: i + 1, n: ok.length });
-        try { await addPhoto(album.id, file); added++; } catch (err) { console.error(err); failed++; lastErr = err; }
+        try { await (shared ? addSharedPhoto(spaceId, file, myName()) : addPhoto(album.id, file)); added++; } catch (err) { console.error(err); failed++; lastErr = err; }
       }
       status.textContent = '';
       if (failed) showToast(`${t('album.addFailed', { n: failed })} ${imageErrorMessage(lastErr)}`, 'error');
       if (added) {
+        // Anggota lain melihatnya di lonceng sebagai satu sinyal ("Alya menambahkan 4 kenangan"); gagal mencatat tidak apa-apa.
+        if (shared) logAlbumActivity(spaceId, { authorName: myName(), count: added }).catch((err) => console.warn('Aktivitas album belum tercatat:', err?.code ?? err));
         try {
-          album = await loadAlbum(album.id);
+          album = await fetchAlbum(album.id);
           drawMeta();
           syncButtons();
           mount(Infinity); // buka di halaman paling belakang, tempat foto baru
-          showToast(t('album.added', { n: added }));
+          showToast(t(added === 1 ? 'album.added1' : 'album.added', { n: added }));
         } catch (err) { console.error(err); showToast(t('book.saveFail'), 'error'); }
       }
       addBtn.disabled = false;
@@ -114,7 +135,34 @@ export async function renderAlbum(root, params) {
     editBtn.onclick = () => openEditAlbum(album, { onSaved: reload });
     syncButtons = () => { addBtn.className = album.photoCount ? 'ghost' : ''; arrangeBtn.hidden = !album.items.length; };
     syncButtons();
-    actions.append(status, input, editBtn, arrangeBtn, noteBtn, addBtn);
+    if (shared) {
+      actions.append(status, input);
+      if (album.canRename) {
+        const renameBtn = el('button', { type: 'button', className: 'ghost' }, icon('pencil'), t('album.rename'));
+        renameBtn.onclick = () => openRename();
+        actions.append(renameBtn);
+      }
+      actions.append(addBtn);
+    } else actions.append(status, input, editBtn, arrangeBtn, noteBtn, addBtn);
+  }
+
+  function openRename() {
+    const title = el('input', { maxLength: 80, autocomplete: 'off', required: true, value: album.title });
+    const error = el('p', { role: 'alert', className: 'form-error' });
+    const save = el('button', { type: 'submit' }, t('edit.save'));
+    const cancel = el('button', { type: 'button', className: 'ghost' }, t('common.cancel'));
+    const form = el('form', { noValidate: true }, el('h2', {}, t('album.renameTitle')),
+      field(t('sp.alTitleLabel'), title), error, el('div', { className: 'actions' }, cancel, save));
+    const dialog = makeDialog('', t('album.renameTitle'), form);
+    cancel.onclick = () => dialog.close();
+    title.focus(); title.select();
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      if (!title.value.trim()) { error.textContent = t('sp.alTitleReq'); title.focus(); return; }
+      save.disabled = true; error.textContent = '';
+      try { await renameSharedAlbum(spaceId, title.value.trim()); dialog.close(); showToast(t('album.renamed')); await reload(); }
+      catch (err) { console.error(err); error.textContent = t('book.saveFail'); save.disabled = false; }
+    };
   }
 
   root.append(el('section', { className: 'page wide' },

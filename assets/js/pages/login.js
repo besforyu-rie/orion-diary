@@ -1,5 +1,5 @@
-// Login (A2): dua kolom mengikuti Figma. Email/password, lupa password, dan Google.
-import { login, register, loginWithGoogle, resetPassword, authMessage, getUser } from '../services/auth.js';
+// Login (A2): dua kolom mengikuti Figma. Email/password dan lupa password (tanpa Google: Firebase versi gratis).
+import { login, register, resetPassword, authMessage, getUser } from '../services/auth.js';
 import { syncPrefsFor, prefsStatus } from '../services/prefs-sync.js';
 import { getPrefs, setPrefs } from '../services/prefs.js';
 import { getLang, t } from '../i18n.js';
@@ -9,14 +9,13 @@ export function renderLogin(root) {
   let isRegister = false;
   const email = el('input', { id: 'email', type: 'email', required: true, autocomplete: 'email' });
   const password = el('input', { id: 'password', type: 'password', required: true, minLength: 6, autocomplete: 'current-password' });
-  const error = el('p', { role: 'alert', style: 'color:var(--pink);min-height:1.4em;margin:0 0 6px' });
-  const info = el('p', { role: 'status', className: 'form-info' });
+  const error = el('p', { role: 'alert', className: 'form-msg err' });
+  const info = el('p', { role: 'status', className: 'form-msg ok' });
   const submit = el('button', { type: 'submit', className: 'wide' });
   const toggle = el('button', { type: 'button', className: 'linkbtn' });
   const heading = el('h1');
   const forgot = el('button', { type: 'button', className: 'linkbtn' }, t('login.forgot'));
-  const google = el('button', { type: 'button', className: 'ghost wide' }, t('login.google'));
-  const busy = (on) => { submit.disabled = on; google.disabled = on; };
+  const busy = (on) => { submit.disabled = on; };
 
   function refresh() {
     heading.textContent = isRegister ? t('login.register') : t('login.title');
@@ -43,7 +42,6 @@ export function renderLogin(root) {
     el('div', { className: 'field' }, el('label', { htmlFor: 'email' }, t('login.email')), email),
     el('div', { className: 'field' }, el('label', { htmlFor: 'password' }, t('login.password')), password, forgot),
     error, info, submit,
-    el('div', { className: 'login-or', ariaHidden: 'true' }, t('login.or')), google,
     el('p', { className: 'login-note' }, t('login.consent')),
     el('div', { className: 'login-foot' }, toggle));
 
@@ -63,12 +61,6 @@ export function renderLogin(root) {
     catch (err) { error.textContent = authMessage(err); }
   };
 
-  google.onclick = async () => {
-    busy(true); error.textContent = ''; info.textContent = '';
-    try { const { isNew } = await loginWithGoogle(); await afterAuth(isNew); }
-    catch (err) { if (err.code !== 'auth/cancelled-popup-request') error.textContent = authMessage(err); }
-    finally { busy(false); }
-  };
 
   // Footer kecil: bahasa, privasi, bantuan (keduanya membuka bagian Beranda).
   const lang = (v, label) => {

@@ -1,5 +1,6 @@
 // Rak album: judul, filter, kartu buku, banner, dan dialog "Album baru".
 import { loadAlbums, createAlbum } from '../services/albums.js';
+import { loadSpaceAlbumBrief, memberLabel } from '../services/spaces.js';
 import { getUser } from '../services/auth.js';
 import { pageCount, STAR_SVG } from '../components/album-book.js';
 import { locale, t } from '../i18n.js';
@@ -15,7 +16,7 @@ function albumCard(album) {
   cover.querySelector('h2').textContent = album.cover.title;
   cover.querySelector('em').textContent = album.date ? `${album.date} ✦` : '✦';
 
-  const href = `#/album?id=${encodeURIComponent(album.id)}`;
+  const href = album.href ?? `#/album?id=${encodeURIComponent(album.id)}`;
   const meta = [
     count(album.photoCount, 'albums.photo1', 'albums.photoN'),
     t('albums.pages', { n: pageCount(album) }),
@@ -72,10 +73,29 @@ function openNewAlbum() {
   title.focus();
 }
 
+/** Album bersama di Bestie Space, dalam bentuk kartu rak (tanpa memuat fotonya). Tanpa ruang atau album: null. */
+async function loadSharedShelfCard() {
+  if (!getUser()) return null;
+  try {
+    const brief = await loadSpaceAlbumBrief();
+    if (!brief?.album) return null;
+    const { space, album } = brief;
+    const n = album.photoCount ?? 0;
+    return {
+      id: album.id, href: `#/album?space=${encodeURIComponent(space.id)}`,
+      shared: true, sharedLabel: space.name, editable: false,
+      cover: { label: memberLabel(space.members), title: album.title }, date: album.date ?? '',
+      photoCount: n, kinds: Array(n).fill('photo'), letter: [], updatedAt: album.updatedAt ?? album.createdAt ?? null,
+    };
+  } catch (err) { console.warn('Album bersama belum bisa dimuat di rak:', err?.code ?? err); return null; }
+}
+
 export async function renderAlbums(root) {
-  const albums = await loadAlbums();
+  const mine = await loadAlbums();
   // Membuat album butuh akun, dan hanya kalau album tersimpan di Firestore (bukan cadangan dari file JSON).
-  const canCreate = Boolean(getUser()) && albums.every((a) => a.editable);
+  const canCreate = Boolean(getUser()) && mine.every((a) => a.editable);
+  const sharedCard = await loadSharedShelfCard();
+  const albums = sharedCard ? [...mine, sharedCard] : mine;
   const photos = albums.reduce((sum, a) => sum + a.photoCount, 0);
   const state = { filter: 'all' };
 

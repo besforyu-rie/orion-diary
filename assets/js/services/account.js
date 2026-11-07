@@ -5,7 +5,7 @@ import { collection, getDocs, deleteDoc } from 'https://www.gstatic.com/firebase
 import { deleteUser } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import { db } from './firebase.js';
 import { getUser } from './auth.js';
-import { loadMySpace, listNotes, deleteNote, deletePost, setHeart, leaveSpace } from './spaces.js';
+import { loadMySpace, listNotes, deleteNote, deletePost, setHeart, leaveSpace, removeMyAlbumTraces } from './spaces.js';
 
 const RECENT_MS = 4 * 60e3; // Firebase menolak hapus akun kalau login sudah lama (sekitar 5 menit)
 
@@ -25,7 +25,7 @@ async function wipeCollection(path, subcollection) {
   }
 }
 
-/** Jejak di ruang bersama: cerita dan catatan milikku dihapus, hatiku dicabut, lalu keluar dari ruang. */
+/** Jejak di ruang bersama: cerita, catatan, dan foto album milikku dihapus, hatiku dicabut, lalu keluar dari ruang. */
 async function leaveSharedSpace(uid) {
   const space = await loadMySpace().catch(() => null);
   if (!space) return;
@@ -36,6 +36,7 @@ async function leaveSharedSpace(uid) {
       for (const n of await listNotes(space.id, p.id)) if (n.authorId === uid) await deleteNote(space.id, p.id, n.id);
     } catch (err) { console.warn('Satu jejak di ruang bersama belum terhapus:', err?.code ?? err); }
   }
+  try { await removeMyAlbumTraces(space.id); } catch (err) { console.warn('Foto di album bersama belum terhapus:', err?.code ?? err); }
   await leaveSpace(space.id);
 }
 

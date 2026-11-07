@@ -6,7 +6,7 @@ export function renderNotFound(root) {
   const signedIn = Boolean(getUser());
   root.append(
     el('section', { className: 'page nf' },
-      el('div', { className: 'nf-art', 'aria-hidden': 'true' },
+      el('div', { className: 'nf-art', ariaHidden: 'true' },
         el('span', {}, '4'), el('img', { src: 'assets/images/pip.png', alt: '' }), el('span', {}, '4')),
       el('h1', {}, t('notfound.title')),
       el('p', { className: 'nf-text' }, t('notfound.text')),

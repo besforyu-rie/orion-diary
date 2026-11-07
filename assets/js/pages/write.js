@@ -1,13 +1,14 @@
 // Editor entri (B3), mengikuti frame Figma "Diary editor":
 // bilah alat teks kaya, perasaan hari ini, label, foto di dalam tulisan, siapa yang boleh lihat, draf otomatis.
-import { addEntry, newEntryId } from '../services/storage.js';
+import { addEntry, newEntryId, getEntry, getEntryPhotos, updateEntry } from '../services/storage.js';
 import { getPrefs, getPrefsScope } from '../services/prefs.js';
 import { showToast } from '../components/toast.js';
+import { confettiBurst } from '../components/confetti.js';
 import { makeDialog } from '../components/dialog.js';
 import { sanitize, plainText, countWords, readMinutes, newPhotoId, trimTail } from '../services/rich.js';
 import { fileToDataUrl, imageErrorMessage, MAX_UPLOAD_MB } from '../services/image.js';
 import { locale, t } from '../i18n.js';
-import { el, icon } from '../utils.js';
+import { el, esc, icon } from '../utils.js';
 
 const MOODS = [['sun', 'Happy', '😊'], ['moon', 'Cozy', '🌙'], ['heart', 'Grateful', '🥰'], ['cloud', 'Low', '🥺']];
 const MAX_PHOTOS = 12;
@@ -20,11 +21,22 @@ const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const tzName = () => (Intl.DateTimeFormat().resolvedOptions().timeZone === 'Asia/Jakarta' ? 'WIB'
   : new Date().toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop());
 
-export function renderWrite(root, params) {
+export async function renderWrite(root, params) {
+  // Mode ubah: #/write?edit=<id> membuka entri yang sudah ada (tombol "Edit entry" di halaman baca).
+  const editId = params?.get('edit') || null;
+  const original = editId ? await getEntry(editId) : null;
+  if (editId && !original) {
+    return root.append(el('section', { className: 'page empty' }, el('h1', {}, t('entry.notFound')), el('a', { className: 'btn', href: '#/diary' }, t('entry.toDiary'))));
+  }
+  const editing = !!original;
+  // Foto di dalam tulisan wajib berhasil dimuat; kalau gagal, router menampilkan "coba lagi" (jangan sampai foto hilang saat disimpan).
+  const origPhotos = editing && original.html && original.photoCount > 0 ? await getEntryPhotos(original.id) : {};
+
   const now = new Date();
   const state = { mood: MOODS[1][2], privacy: getPrefs().newPrivate === false ? 'shared' : 'private', tags: [], date: dayStr(now) };
+  if (editing) Object.assign(state, { mood: original.mood, privacy: original.privacy ?? 'private', tags: [...(original.tags ?? [])], date: dayStr(new Date(original.createdAt)) });
   let saved = false, dirty = false, timer = null, range = null;
-  const entryId = newEntryId(); // tetap sama kalau menyimpan diulang, jadi tidak dobel
+  const entryId = editing ? original.id : newEntryId(); // tetap sama kalau menyimpan diulang, jadi tidak dobel
   let pageEl = null;
 
   // ---------- Judul & isi ----------
@@ -177,12 +189,17 @@ export function renderWrite(root, params) {
     tool('link', 'link', openLink, () => inside('a')),
     tool('image', 'image-plus', () => picker.click()),
     tool('undo', 'undo', () => exec('undo')));
-  // Roving tabindex: satu tab masuk ke bilah alat, panah kiri/kanan berpindah.
+  // Roving tabindex (pola toolbar ARIA): satu perhentian tab untuk seluruh bilah alat, panah kiri/kanan (Home/End) berpindah.
   const btns = () => [fmt, ...tools.map(([b]) => b)];
+  const setStop = (target) => btns().forEach((b) => { b.tabIndex = b === target ? 0 : -1; });
+  setStop(fmt);
+  toolbar.addEventListener('focusin', (e) => { if (btns().includes(e.target)) setStop(e.target); });
   toolbar.addEventListener('keydown', (e) => {
-    if (!['ArrowLeft', 'ArrowRight'].includes(e.key) || e.target === url) return;
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key) || e.target === url) return;
     const l = btns(), i = l.indexOf(document.activeElement); if (i < 0) return;
-    e.preventDefault(); l[(i + (e.key === 'ArrowRight' ? 1 : -1) + l.length) % l.length].focus();
+    e.preventDefault();
+    const next = e.key === 'Home' ? 0 : e.key === 'End' ? l.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + l.length) % l.length;
+    l[next].focus();
   });
 
   function updateTools() {
@@ -248,7 +265,7 @@ export function renderWrite(root, params) {
   function drawDate() {
     const d = new Date(`${state.date}T12:00:00`);
     const day = d.toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase();
-    dateText.textContent = state.date === dayStr(now) ? `${day} · ${clock(now)} ${tzName()}` : day;
+    dateText.textContent = !editing && state.date === dayStr(now) ? `${day} · ${clock(now)} ${tzName()}` : day;
   }
 
   const aside = el('aside', { className: 'ed-side' },
@@ -280,18 +297,23 @@ export function renderWrite(root, params) {
   });
 
   const error = el('p', { role: 'alert', className: 'form-error' });
-  const saveBtn = el('button', { type: 'button' }, icon('sparkles'), t('write.save'));
+  const saveBtn = el('button', { type: 'button' }, icon('sparkles'), t(editing ? 'wedit.save' : 'write.save'));
   const previewBtn = el('button', { type: 'button', className: 'ghost' }, t('write.preview'));
   previewBtn.onclick = preview;
+  const cancelBtn = el('button', { type: 'button', className: 'ghost' }, t('common.cancel'));
+  cancelBtn.onclick = () => {
+    if (dirty && !confirm(t('wedit.discard'))) return;
+    location.hash = `#/entry?id=${original.id}`;
+  };
 
   // Galat sinkron (E2): draf aman di perangkat, tombol coba lagi atau lanjut menulis offline.
   const syncPanel = el('section', { className: 'card state-card sync-error', role: 'alert', hidden: true });
   function showSyncError() {
-    saveDraft(); setStatus(t('write.draftLocal'), 'cloud-off');
+    if (editing) setStatus(t('wedit.unsaved'), 'cloud-off'); else { saveDraft(); setStatus(t('write.draftLocal'), 'cloud-off'); }
     const retry = el('button', { type: 'button' }, icon('refresh-cw'), t('st.syncRetry'));
     const offline = el('button', { type: 'button', className: 'ghost' }, t('st.syncOffline'));
     retry.onclick = () => { syncPanel.hidden = true; save(); };
-    offline.onclick = () => { syncPanel.hidden = true; setStatus(t('write.draftLocal'), 'cloud-off'); (title.value ? body : title).focus(); };
+    offline.onclick = () => { syncPanel.hidden = true; setStatus(t(editing ? 'wedit.unsaved' : 'write.draftLocal'), 'cloud-off'); (title.value ? body : title).focus(); };
     syncPanel.replaceChildren(
       el('span', { className: 'state-ic', 'aria-hidden': 'true' }, icon('cloud-off')),
       el('h2', {}, t('st.syncTitle')), el('p', {}, t('st.syncText')),
@@ -313,6 +335,7 @@ export function renderWrite(root, params) {
           el('p', {}, [entry.privacy === 'shared' ? t('st.okShared') : t('st.okPrivate'), entry.title, entry.privacy === 'shared' ? '' : t('st.okNoChange')].filter(Boolean).join(' · '))),
         view));
     heading.focus();
+    confettiBurst();
   }
 
   const withTimeout = (promise, ms) => Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('timeout'), { code: 'timeout' })), ms))]);
@@ -323,8 +346,8 @@ export function renderWrite(root, params) {
     error.textContent = ''; syncPanel.hidden = true;
     if (!title.value.trim()) { error.textContent = t('write.needTitle'); title.focus(); return; }
     if (!hasContent()) { error.textContent = t('write.needBody'); body.focus(); return; }
-    if (state.privacy === 'shared' && !(await confirmShare())) return;
-    if (navigator.onLine === false) { setStatus(t('write.draftLocal'), 'cloud-off'); showSyncError(); return; }
+    if (state.privacy === 'shared' && !(editing && original.privacy === 'shared') && !(await confirmShare())) return;
+    if (navigator.onLine === false) { showSyncError(); return; }
 
     const html = cleanHtml();
     const box = el('div'); box.innerHTML = html;
@@ -332,17 +355,27 @@ export function renderWrite(root, params) {
     const same = state.date === dayStr(now);
     saveBtn.disabled = true; setStatus(t('write.saving'), 'cloud');
     try {
-      const entry = await withTimeout(addEntry({
-        id: entryId,
-        title: title.value.trim(), text: plainText(html), mood: state.mood, tags: state.tags, privacy: state.privacy, handwritten: false,
-        createdAt: same ? Date.now() : new Date(`${state.date}T12:00:00`).getTime(),
+      const fields = {
+        title: title.value.trim(), text: plainText(html), mood: state.mood, tags: state.tags, privacy: state.privacy,
         html: trimTail(sanitize(html, { keepSrc: false })), photos,
-      }), 25000);
-      saved = true; clearTimeout(timer); dirty = false;
-      try { localStorage.removeItem(draftKey()); } catch { /* abaikan */ }
-      showSaved(entry);
+      };
+      if (editing) {
+        const keepDate = state.date === dayStr(new Date(original.createdAt));
+        await withTimeout(updateEntry(original.id, { ...fields, handwritten: original.handwritten ?? false, createdAt: keepDate ? original.createdAt : new Date(`${state.date}T12:00:00`).getTime() }), 25000);
+        saved = true; clearTimeout(timer); dirty = false;
+        showToast(t('wedit.saved'));
+        location.hash = `#/entry?id=${original.id}`;
+      } else {
+        const entry = await withTimeout(addEntry({
+          id: entryId, ...fields, handwritten: false,
+          createdAt: same ? Date.now() : new Date(`${state.date}T12:00:00`).getTime(),
+        }), 25000);
+        saved = true; clearTimeout(timer); dirty = false;
+        try { localStorage.removeItem(draftKey()); } catch { /* abaikan */ }
+        showSaved(entry);
+      }
     } catch (err) {
-      saveBtn.disabled = false; setStatus(t('write.draftLocal'), 'cloud-off');
+      saveBtn.disabled = false; setStatus(t(editing ? 'wedit.unsaved' : 'write.draftLocal'), 'cloud-off');
       if (err?.code === 'too-long') { error.textContent = t('write.tooLong'); showToast(t('write.errToast'), 'error'); return; }
       showSyncError();
     }
@@ -351,7 +384,7 @@ export function renderWrite(root, params) {
 
   // ---------- Draf otomatis (di perangkat ini) ----------
   function saveDraft() {
-    if (saved) return;
+    if (saved || editing) return; // saat mengubah entri yang sudah ada, tidak ada draf lokal
     const data = { title: title.value, html: cleanHtml(), mood: state.mood, privacy: state.privacy, tags: state.tags, date: state.date, ts: Date.now() };
     if (!data.title.trim() && !plainText(data.html) && !state.tags.length) { try { localStorage.removeItem(draftKey()); } catch { /* abaikan */ } return; }
     try { localStorage.setItem(draftKey(), JSON.stringify(data)); }
@@ -360,7 +393,7 @@ export function renderWrite(root, params) {
     }
     dirty = false; setStatus(t('write.draftSaved', { time: clock(new Date()) }));
   }
-  function touch() { dirty = true; clearTimeout(timer); timer = setTimeout(saveDraft, 800); }
+  function touch() { dirty = true; if (editing) setStatus(t('wedit.unsaved'), 'cloud'); clearTimeout(timer); timer = setTimeout(saveDraft, 800); }
   function sync() { ensureBlocks(); body.classList.toggle('is-empty', !plainText(body.innerHTML) && !body.querySelector('figure')); body.querySelectorAll('figure img').forEach((i) => { i.alt = i.closest('figure')?.querySelector('figcaption')?.textContent.trim() ?? ''; }); updateCount(); drawThumbs(); updateTools(); touch(); }
 
   body.addEventListener('input', sync);
@@ -384,15 +417,22 @@ export function renderWrite(root, params) {
       el('div', { className: 'ed-meta' }, dateText, changeDate, dateInput), title, body, error),
     el('div', { className: 'ed-foot' }, counter, hint));
   pageEl = el('section', { className: 'page wide editor-page' },
-    el('header', { className: 'ed-head' }, el('h1', {}, t('write.title')),
-      el('p', { className: 'ed-sub' }, `${now.toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · ${t('write.sub')}`)),
-    el('div', { className: 'ed-bar' }, status, el('div', { className: 'ctrl' }, previewBtn, saveBtn)),
+    el('header', { className: 'ed-head' }, el('h1', {}, t(editing ? 'wedit.title' : 'write.title')),
+      el('p', { className: 'ed-sub' }, `${now.toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · ${t(editing ? 'wedit.sub' : 'write.sub')}`)),
+    el('div', { className: 'ed-bar' }, status, el('div', { className: 'ctrl' }, previewBtn, ...(editing ? [cancelBtn] : []), saveBtn)),
     syncPanel,
     el('div', { className: 'ed-grid' }, card, aside), picker);
   root.append(pageEl);
 
-  // Pulihkan draf (kecuali dibuka dengan ide dari Dashboard).
-  try {
+  if (editing) {
+    title.value = original.title ?? '';
+    body.innerHTML = original.html
+      ? sanitize(original.html, { keepSrc: true, photos: origPhotos })
+      : original.text.split(/\n{2,}/).map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
+    dateInput.value = state.date;
+    moodGroup.forEach(([b, v]) => b.setAttribute('aria-pressed', String(v === state.mood)));
+    privGroup.forEach(([b, v]) => b.setAttribute('aria-pressed', String(v === state.privacy)));
+  } else try { // Pulihkan draf (kecuali dibuka dengan ide dari Dashboard).
     const d = JSON.parse(localStorage.getItem(draftKey()) ?? 'null');
     if (d && !params?.get('prompt')) {
       title.value = d.title ?? ''; body.innerHTML = sanitize(d.html, { keepSrc: true });
@@ -407,6 +447,7 @@ export function renderWrite(root, params) {
     } else setStatus(t('write.draftNew'));
   } catch { setStatus(t('write.draftNew')); }
   decorate(); ensureBlocks(); drawTags(); drawDate(); fit(); sync(); dirty = false;
+  if (editing) setStatus(t('wedit.open'));
   requestAnimationFrame(() => { fit(); if (!title.value) title.focus({ preventScroll: true }); }); // setelah halaman sudah terpasang di dokumen
 
   return () => { // dipanggil router saat pindah halaman atau ganti bahasa

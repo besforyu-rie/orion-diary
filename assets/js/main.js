@@ -24,6 +24,7 @@ import { renderJoin } from './pages/join.js';
 import { renderNotifications } from './pages/notifications.js';
 import { initNavUser } from './components/nav-user.js';
 import { initMoreSheet } from './components/more-sheet.js';
+import { initStars } from './components/stars.js';
 import { translateStatic, t } from './i18n.js';
 
 /** Halaman yang butuh login: kalau belum login, arahkan ke #/login. */
@@ -51,6 +52,13 @@ await Promise.race([prefsReady(), new Promise((r) => setTimeout(r, 2500))]); // 
 setAuthState(getUser());
 initNavUser();
 initMoreSheet();
+initStars();
+// "Lewati ke konten": jangan ubah hash (router akan menganggapnya halaman lain), cukup pindahkan fokus ke isi halaman.
+document.querySelector('.skip')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  const app = document.getElementById('app');
+  app.focus(); app.scrollIntoView({ block: 'start' });
+});
 
 startRouter(
   {

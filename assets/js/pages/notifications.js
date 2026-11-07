@@ -20,6 +20,7 @@ function copyFor(n) {
     case 'stream': return { title: t('sig.streamTitle', v), text: t('sig.streamText', v) };
     case 'bestie': return { title: t('sig.postTitle', v), text: `“${v.title}”. ${v.text}` };
     case 'bestieJoin': return { title: t('sig.joinTitle', v), text: t('sig.joinText', v) };
+    case 'bestieAlbum': return { title: t(Number(v.n) === 1 ? 'sig.albumTitle1' : 'sig.albumTitleN', v), text: t('sig.albumText', v) };
     case 'wish': return { title: t('sig.wishTitle', v), text: v.text };
     case 'milestone': return { title: t('sig.streakTitle', v), text: t('sig.streakText') };
     case 'evening': return { title: t('sig.eveTitle'), text: t('sig.eveText') };

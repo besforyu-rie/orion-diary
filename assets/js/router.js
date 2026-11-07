@@ -20,6 +20,7 @@ const errorView = (retry) => el('section', { className: 'page' },
 export function startRouter(routes, outlet) {
   let cleanup = null;
   let current = 0;
+  let firstRender = true;
 
   async function show() {
     const mine = ++current;
@@ -35,6 +36,11 @@ export function startRouter(routes, outlet) {
       if (mine !== current) { result?.(); return; } // pengguna sudah pindah halaman
       cleanup = result;
       outlet.replaceChildren(view);
+      // Pindah halaman: judul tab mengikuti judul halaman, dan fokus tidak hilang ke <body> (pembaca layar & keyboard).
+      const h1 = outlet.querySelector('h1')?.textContent.trim();
+      document.title = h1 ? `${h1} · Orion Diary ✦` : 'Orion Diary ✦';
+      const moved = !firstRender; firstRender = false;
+      if (moved) requestAnimationFrame(() => { if (mine === current && (!document.activeElement || document.activeElement === document.body)) outlet.focus({ preventScroll: true }); });
     } catch (err) {
       console.error(err);
       if (mine === current) outlet.replaceChildren(errorView(show));

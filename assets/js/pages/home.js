@@ -84,7 +84,8 @@ export function renderHome(root) {
   const foot = (id, key) => { const b = el('button', { type: 'button', className: 'linklike' }, t(key)); b.onclick = () => scrollTo(id); return b; };
   const footer = el('footer', { className: 'lp-footer' },
     el('span', { className: 'logo' }, icon('sparkles', 'logo-icon'), 'orion diary'),
-    el('nav', { className: 'lp-foot-links', ariaLabel: 'Footer' }, foot('lp-about', 'home.fAbout'), foot('lp-privacy', 'home.fPrivacy'), foot('lp-faq', 'home.fHelp')),
+    el('nav', { className: 'lp-foot-links', ariaLabel: 'Footer' }, foot('lp-about', 'home.fAbout'), foot('lp-privacy', 'home.fPrivacy'), foot('lp-faq', 'home.fHelp'),
+      el('a', { className: 'linklike', href: '#/dinding' }, t('nav.wall'))),
     langSel, el('small', {}, t('home.made')));
 
   root.append(el('div', { className: 'landing' }, topbar, hero, intro, features, album, bestie, privacy, faq, closing, footer));

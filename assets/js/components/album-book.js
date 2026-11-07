@@ -16,7 +16,7 @@ const polaroid = (photo, i, rotate) => {
   const style = photo.src ? `style="background-image:url('${esc(photo.src)}');background-position:${esc(photo.focus ?? '50% 50%')}"` : '';
   const filler = photo.src ? '' : '✦';
   return `<div class="pol" style="--r:${rotate}deg"><i class="tape"></i>
-    <div class="img g${(i % 5) + 1}" ${style} data-cap="${esc(photo.caption)}" data-pid="${esc(photo.id ?? '')}">${filler}</div>
+    <div class="img g${(i % 5) + 1}" ${style} data-cap="${esc(photo.caption)}" data-pid="${esc(photo.id ?? '')}" data-by="${esc(photo.addedByName ?? '')}">${filler}</div>
     <b>${esc(photo.caption)}</b></div>`;
 };
 
@@ -114,11 +114,11 @@ export function mountAlbum(root, data, opts = {}) {
         <label class="opt"><span>${t('book.sound')}</span><input type="checkbox" role="switch" id="sound" ${getPrefs().flipSound ? 'checked' : ''}></label>
       </div>
     </div>
-    <div id="lb" role="dialog" aria-label="${t('book.photo')}"><div class="card"><div class="img" id="lbimg"></div><p id="lbcap"></p></div>
+    <dialog id="lb" aria-label="${t('book.photo')}"><div class="card"><div class="img" id="lbimg"></div><p id="lbcap"></p><p id="lbby" class="lb-by" hidden></p></div>
       <input id="lbcapin" class="lb-input" maxlength="120" hidden placeholder="${esc(t('book.caption'))}" aria-label="${esc(t('book.caption'))}">
       <div class="ctrl"><label class="btn" tabindex="0">${t('book.change')}<input type="file" accept="image/*" hidden></label>
       <button class="ghost" data-act="delete" hidden>${t('book.delete')}</button>
-      <button class="ghost" data-act="close">${t('book.close')}</button></div></div>`;
+      <button class="ghost" data-act="close">${t('book.close')}</button></div></dialog>`;
 
   const $ = (s) => root.querySelector(s);
   const leaves = [...root.querySelectorAll('.leaf')];
@@ -134,6 +134,19 @@ export function mountAlbum(root, data, opts = {}) {
   const panel = $('.book-panel');
   leaves.forEach((l, i) => { l.style.zIndex = i < page ? i : total - i; });
 
+  const pols = [...root.querySelectorAll('.pol')];
+  pols.forEach((p, n) => {
+    const img = p.querySelector('.img');
+    p.tabIndex = -1; p.setAttribute('role', 'button');
+    p.setAttribute('aria-label', `${t('book.photo')}: ${img.dataset.cap || n + 1}`);
+    p.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openPhoto(img); } });
+  });
+  const polVisible = (p) => {
+    const i = leaves.indexOf(p.closest('.leaf')), back = Boolean(p.closest('.face.back'));
+    if (single && half === 'L') return back && i === page - 1;
+    if (single) return !back && i === page;
+    return back ? i === page - 1 : i === page;
+  };
   function render() {
     leaves.forEach((l, i) => {
       const was = l.classList.contains('flipped');
@@ -152,6 +165,7 @@ export function mountAlbum(root, data, opts = {}) {
     openBtn.classList.toggle('off', page > 0);
     openBtn.inert = page > 0;
     $('.panel-note').textContent = t(page === 0 ? 'book.noteClosed' : 'book.noteOpen');
+    pols.forEach((p) => { const on = polVisible(p); p.tabIndex = on ? 0 : -1; p.inert = !on; });
     opts.onState?.({ page, total });
     $('.count').textContent = pageLabel(page, total, single, half);
     $('[data-act=prev]').disabled = page === 0;
@@ -189,12 +203,19 @@ export function mountAlbum(root, data, opts = {}) {
     lbImg.style.backgroundImage = img.style.backgroundImage;
     lbImg.textContent = img.textContent;
     $('#lbcap').textContent = img.dataset.cap;
-    const editable = Boolean(opts.onSaveCaption && img.dataset.pid); // keterangan hanya bisa diubah di album tersimpan
+    // Keterangan dan hapus hanya di album tersimpan; di album bersama hanya untuk foto yang kutambahkan sendiri (opts.canEdit).
+    const mine = !opts.canEdit || opts.canEdit(img.dataset.pid);
+    const editable = Boolean(opts.onSaveCaption && img.dataset.pid && mine);
     capIn.hidden = !editable;
-    $('[data-act=delete]').hidden = !(opts.onDeletePhoto && img.dataset.pid);
+    $('[data-act=delete]').hidden = !(opts.onDeletePhoto && img.dataset.pid && mine);
+    const changeBtn = root.querySelector('#lb label.btn');
+    if (changeBtn) changeBtn.hidden = opts.canChange === false || !mine;
+    const by = $('#lbby');
+    by.textContent = img.dataset.by ? t('book.addedBy', { name: img.dataset.by }) : '';
+    by.hidden = !img.dataset.by;
     $('#lbcap').hidden = editable;
     if (editable) capIn.value = img.dataset.cap ?? '';
-    lightbox.classList.add('on');
+    if (!lightbox.open) lightbox.showModal(); // <dialog> bawaan: fokus terkunci, Esc menutup, fokus kembali ke polaroid asal
   }
 
   let swiped = false;
@@ -223,9 +244,9 @@ export function mountAlbum(root, data, opts = {}) {
     if (act === 'next') go(1);
     if (act === 'prev') go(-1);
     if (act === 'play') toggleSlideshow();
-    if (act === 'close') lightbox.classList.remove('on');
+    if (act === 'close') lightbox.close();
     if (act === 'delete' && current && confirm(t('book.confirmDelete'))) {
-      lightbox.classList.remove('on');
+      lightbox.close();
       opts.onDeletePhoto(current.dataset.pid);
     }
     const noteBtn = e.target.closest?.('[data-note]');
@@ -269,8 +290,8 @@ export function mountAlbum(root, data, opts = {}) {
     show(URL.createObjectURL(file)); // album dari file JSON: hanya sementara di browser
   });
   const onKey = (e) => {
-    if (e.key === 'Escape') lightbox.classList.remove('on');
-    if (lightbox.classList.contains('on')) return;
+    if (lightbox.open) return; // Esc ditangani <dialog>
+
     if (e.key === 'ArrowRight') go(1);
     if (e.key === 'ArrowLeft') go(-1);
   };
@@ -281,6 +302,7 @@ export function mountAlbum(root, data, opts = {}) {
       for (let k = 1; box.scrollHeight > box.clientHeight + 1 && k > 0.45;) { k -= 0.05; box.style.setProperty('--k', k.toFixed(2)); }
     });
   }
+  root.querySelector('#lb label.btn')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.querySelector('input').click(); } });
   document.addEventListener('keydown', onKey);
   window.addEventListener('resize', render);
   render();

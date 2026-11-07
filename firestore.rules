@@ -17,6 +17,27 @@ service cloud.firestore {
       return signedIn() && exists(/databases/$(database)/documents/spaces/$(sid)/members/$(request.auth.uid));
     }
 
+    // Pembuat ruang bersama (boleh mengganti judul album bersama walau bukan pembuat albumnya).
+    function isSpaceOwner(sid) {
+      return signedIn() && get(/databases/$(database)/documents/spaces/$(sid)).data.createdBy == request.auth.uid;
+    }
+    // Isi foto (data URL JPEG/PNG/WebP hasil kecilan di browser) dan keterangannya.
+    function validPhotoData(d) {
+      return d.data is string && d.data.size() > 0 && d.data.size() <= 900000
+        && d.data.matches('^data:image/(jpeg|webp|png);base64,.*')
+        && (!('caption' in d) || (d.caption is string && d.caption.size() <= 120))
+        && (!('alt' in d) || (d.alt is string && d.alt.size() <= 200));
+    }
+
+    // Perubahan pada daftar reaksi (uid) hanya boleh menyentuh uid pengguna sendiri; field yang belum ada dianggap kosong.
+    function ownReaction(field) {
+      let before = resource.data.get(field, []);
+      let after = request.resource.data.get(field, []);
+      return after is list && after.size() <= 50
+        && after.toSet().difference(before.toSet()).hasOnly([request.auth.uid])
+        && before.toSet().difference(after.toSet()).hasOnly([request.auth.uid]);
+    }
+
     // Diary dan data lain di bawah users/{uid}: privat, hanya pemilik akun.
     // Koleksi "albums" dikecualikan di sini karena punya aturan sendiri di bawah.
     match /users/{uid}/{col}/{rest=**} {
@@ -113,13 +134,10 @@ service cloud.firestore {
           && request.resource.data.hearts == []
           && (!('mood' in request.resource.data)
               || (request.resource.data.mood is string && request.resource.data.mood.size() <= 8));
-        // Anggota lain hanya boleh menambah/mencabut hati milik sendiri.
+        // Anggota hanya boleh menambah/mencabut reaksi (hati, bintang, bulan) milik sendiri.
         allow update: if isMember(sid)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hearts'])
-          && request.resource.data.hearts is list
-          && request.resource.data.hearts.size() <= 50
-          && request.resource.data.hearts.toSet().difference(resource.data.hearts.toSet()).hasOnly([request.auth.uid])
-          && resource.data.hearts.toSet().difference(request.resource.data.hearts.toSet()).hasOnly([request.auth.uid]);
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hearts', 'stars', 'moons'])
+          && ownReaction('hearts') && ownReaction('stars') && ownReaction('moons');
         allow delete: if isMember(sid) && resource.data.authorId == request.auth.uid;
 
         match /notes/{nid} {
@@ -132,6 +150,59 @@ service cloud.firestore {
             && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 300;
           allow delete: if isMember(sid) && resource.data.authorId == request.auth.uid;
         }
+      }
+
+      // Album bersama: satu per ruang (id tetap 'main'). Anggota membaca dan menambah foto; foto hanya bisa diubah
+      // atau dihapus oleh yang menambahkannya. Judul diubah pembuat album atau pembuat ruang.
+      match /albums/{aid} {
+        allow read: if isMember(sid);
+        allow create: if isMember(sid) && aid == 'main'
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 80
+          && request.resource.data.photoCount == 0;
+        allow update: if isMember(sid) && (
+          // ganti judul
+          ((resource.data.createdBy == request.auth.uid || isSpaceOwner(sid))
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'updatedAt'])
+            && request.resource.data.title is string
+            && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 80)
+          ||
+          // jumlah foto naik/turun satu (bersamaan dengan menambah/menghapus fotonya) dan catatan penambah terakhir
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoCount', 'lastPhotoBy', 'lastPhotoByName', 'lastPhotoAt', 'updatedAt'])
+            && request.resource.data.photoCount is int
+            && request.resource.data.photoCount >= 0 && request.resource.data.photoCount <= 100
+            && request.resource.data.photoCount - resource.data.photoCount <= 1
+            && request.resource.data.photoCount - resource.data.photoCount >= -1
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastPhotoBy'])
+                || request.resource.data.lastPhotoBy == request.auth.uid))
+        );
+        allow delete: if isMember(sid) && resource.data.createdBy == request.auth.uid;
+
+        match /photos/{pid} {
+          allow read: if isMember(sid);
+          allow create: if isMember(sid)
+            && request.resource.data.addedBy == request.auth.uid
+            && request.resource.data.addedByName is string
+            && request.resource.data.addedByName.size() > 0 && request.resource.data.addedByName.size() <= 40
+            && validPhotoData(request.resource.data);
+          allow update: if isMember(sid) && resource.data.addedBy == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['caption', 'alt', 'focus'])
+            && validPhotoData(request.resource.data);
+          allow delete: if isMember(sid) && resource.data.addedBy == request.auth.uid;
+        }
+      }
+
+      // Catatan "si A menambahkan n foto" untuk lonceng anggota lain.
+      match /albumActivity/{aid} {
+        allow read: if isMember(sid);
+        allow create: if isMember(sid)
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.authorName is string
+          && request.resource.data.authorName.size() > 0 && request.resource.data.authorName.size() <= 40
+          && request.resource.data.count is int
+          && request.resource.data.count >= 1 && request.resource.data.count <= 100;
+        allow delete: if isMember(sid) && resource.data.authorId == request.auth.uid;
       }
     }
 

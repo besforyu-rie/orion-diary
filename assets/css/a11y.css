@@ -1,0 +1,62 @@
+/* E4: aksesibilitas & gerak (dari frame Handoff) */
+
+/* Ukuran sentuh minimal 44 x 44 px */
+.logo{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;gap:6px}
+.nav-links a{display:inline-flex;align-items:center;min-height:44px}
+.page a:not(.btn):not(.sig-card):not(.tl-card):not(.chip):not(.entry-card):not(.orbit-card):not(.shelf-stage),.landing a:not(.btn),.login-left a{display:inline-flex;align-items:center;min-height:44px}
+.page p a,.page li a,.page small a,.page .rich a,.landing p a,.faq a{display:inline;min-height:0}
+.cal button{min-height:44px}
+button.chip,.chip.tag{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;font-size:13px}
+.tag-input{min-height:44px}
+.ed-title{min-height:44px}
+@media (max-width:560px){.cal{gap:2px}}
+
+/* Teks isian (placeholder) cukup kontras di kedua tema */
+::placeholder{color:var(--lavender);opacity:1}
+.ed-body.is-empty::before,.ed-body figcaption:empty::before{opacity:1}
+
+/* Lencana di tema terang */
+:root[data-theme="light"] .badge{color:#6b4400}
+
+/* Fokus terlihat: garis 2 px (di sini 3 px) di semua elemen interaktif, termasuk yang belum punya aturan sendiri */
+:where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.skip:focus-visible{outline-color:#fff}
+
+/* Informasi tidak hanya lewat warna: penanda hari yang ada entrinya dan tag aktif punya bentuk/teks juga */
+.cal button.has{font-weight:700}
+.chip.on::before,.chip.tag[aria-pressed="true"]::before{content:"✓ "}
+
+/* Gerak: tilt album hanya untuk pointer halus (±4°), tanpa gerak kalau diminta dikurangi */
+@media (hover:hover) and (pointer:fine){.tilt.closed:hover{transform:rotateY(-4deg) rotateX(3deg)}}
+@media not all and (hover:hover) and (pointer:fine){.tilt.closed:hover{transform:none}}
+.mascot,.hero-pip,.nf-art img{animation-duration:5s}
+
+/* Kelip bintang pelan di latar (hanya tema gelap) */
+.stars{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+.stars i{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;opacity:.2;animation:twinkle 6s ease-in-out infinite}
+@keyframes twinkle{50%{opacity:.75}}
+:root[data-theme="light"] .stars{display:none}
+
+/* Confetti sekali saat entri tersimpan (600 ms) */
+.confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:40}
+.confetti i{position:absolute;top:-10px;width:8px;height:12px;border-radius:2px}
+
+/* Kurangi gerakan: dari sistem (prefers-reduced-motion) maupun sakelar di Pengaturan */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition-duration:.01s!important;scroll-behavior:auto!important}
+  .tilt.closed:hover,.shelf-book:hover{transform:none!important}
+  .stars,.confetti{display:none!important}
+}
+[data-motion="reduce"] *,[data-motion="reduce"] *::before,[data-motion="reduce"] *::after{animation:none!important;transition-duration:.01s!important;scroll-behavior:auto!important}
+[data-motion="reduce"] .tilt.closed:hover,[data-motion="reduce"] .shelf-book:hover{transform:none!important}
+[data-motion="reduce"] .stars,[data-motion="reduce"] .confetti{display:none!important}
+
+/* Kalender Diary: tiap hari minimal 44 x 44 px (sidebar dilebarkan, jarak antarsel 0) */
+.cal{gap:0}
+.two-col:has(.cal){grid-template-columns:356px 1fr}
+@media (max-width:760px){.two-col:has(.cal){grid-template-columns:1fr}.card:has(.cal){padding:16px 12px}}
+
+#app:focus{outline:none}
+
+/* Login: "Forgot password?" rata kiri di bawah isian password */
+.login-card .field .linkbtn{display:inline-flex;align-items:center;width:fit-content;align-self:flex-start;margin-top:2px;text-align:left}

@@ -7,7 +7,7 @@ import { getUser } from './auth.js';
 import { getPrefs, setPrefs } from './prefs.js';
 import { listEntries } from './storage.js';
 import { listAllWishes } from './wishes.js';
-import { loadMySpace, listMyInvites } from './spaces.js';
+import { loadMySpace, listMyInvites, listAlbumActivity } from './spaces.js';
 
 export const WINDOW_DAYS = 7;           // sinyal lebih tua dari ini tidak ditampilkan
 const DAY = 864e5;
@@ -62,6 +62,15 @@ async function bestieSignals() {
     if (p.authorId === me || !recent(p.createdAt)) continue;
     out.push({ id: `post:${space.id}:${p.id}`, type: 'bestie', at: p.createdAt, icon: 'heart', href: '#/bestie',
       vars: { who: p.authorName, space: space.name, title: p.title, text: snippet(p.text) } });
+  }
+  // Album bersama: satu sinyal per kali anggota lain menambah foto ("Alya menambahkan 4 kenangan"). Gagal dimuat = dilewati.
+  if (space.album) {
+    const acts = await listAlbumActivity(space.id).catch(() => []);
+    for (const a of acts) {
+      if (a.authorId === me || !recent(a.createdAt)) continue;
+      out.push({ id: `album:${space.id}:${a.id}`, type: 'bestieAlbum', group: 'bestie', at: a.createdAt, icon: 'image-plus', href: '#/bestie?tab=album',
+        vars: { who: a.authorName, n: a.count, space: space.name, album: space.album.title } });
+    }
   }
   for (const m of space.members) {
     if (m.uid === me || !recent(m.joinedAt ?? 0)) continue;
@@ -141,7 +150,7 @@ export async function loadNotifications(force = false) {
 /** Hormati pilihan di Pengaturan. Undangan, ucapan, dan ekspor selalu tampil. */
 export function visible(items) {
   const p = getPrefs();
-  const off = { stream: p.notifStream === false, bestie: p.notifBestie === false, bestieJoin: p.notifBestie === false, milestone: p.notifNudge === false };
+  const off = { stream: p.notifStream === false, bestie: p.notifBestie === false, bestieJoin: p.notifBestie === false, bestieAlbum: p.notifBestie === false, milestone: p.notifNudge === false };
   return items.filter((n) => !off[n.type]);
 }
 
