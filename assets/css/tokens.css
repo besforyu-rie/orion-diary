@@ -1,0 +1,17 @@
+/* Design tokens: ambil dari Figma Design System */
+:root {
+  --night: #1B1035;
+  --royal: #6C3FD1;
+  --lavender: #B79CFF;
+  --lilac: #E9DFFF;
+  --pink: #FF9ED8;
+  --gold: #FFD86B;
+  --paper: #FFF7EC;
+  --ink: #3b2a63;
+  --glass: #ffffff14;
+  --radius: 24px;
+  --font-display: Fredoka, system-ui, sans-serif;
+  --font-body: Nunito, system-ui, sans-serif;
+  --font-hand: Caveat, cursive;
+  color-scheme: dark;
+}

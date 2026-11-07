@@ -1,0 +1,19 @@
+{
+  "to": "Aretha",
+  "from": "Cheese",
+  "date": "2 Desember",
+  "cover": { "label": "ARETHA’S MEMORY ALBUM", "title": "Little things, big feelings" },
+  "dedication": "Selamat ulang tahun! Buka halaman demi halaman ya. Semua isinya buat kamu.",
+  "photos": [
+    { "src": "", "caption": "kita di hari itu ✦" },
+    { "src": "", "caption": "inside joke kita" },
+    { "src": "", "caption": "momen favoritku" },
+    { "src": "", "caption": "kita berdua" },
+    { "src": "", "caption": "selalu begini ya" }
+  ],
+  "letter": [
+    "Aretha, terima kasih sudah jadi orang yang selalu ada.",
+    "Semoga tahun ini penuh hal baik, tawa, dan bintang-bintang kecil yang bikin kamu senyum."
+  ],
+  "ending": "Masih ada halaman kosong untuk cerita kita tahun depan ✦"
+}
