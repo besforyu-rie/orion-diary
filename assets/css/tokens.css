@@ -1,17 +1,60 @@
-/* Design tokens: ambil dari Figma Design System */
+/* Design tokens: ambil dari Figma Design System. Tema gelap = bawaan, tema terang di bawahnya. */
 :root {
-  --night: #1B1035;
+  --night: #1B1035;      /* teks gelap di atas warna terang (tombol pink/gold) */
   --royal: #6C3FD1;
   --lavender: #B79CFF;
-  --lilac: #E9DFFF;
+  --lilac: #E9DFFF;      /* teks isi */
   --pink: #FF9ED8;
   --gold: #FFD86B;
   --paper: #FFF7EC;
   --ink: #3b2a63;
-  --glass: #ffffff14;
+  --glass: #ffffff14;    /* latar kartu */
   --radius: 24px;
   --font-display: Fredoka, system-ui, sans-serif;
   --font-body: Nunito, system-ui, sans-serif;
   --font-hand: Caveat, cursive;
+
+  /* Semantik: berubah mengikuti tema */
+  --bg: #1B1035;
+  --bg-glow: #3a1f78;
+  --heading: #ffffff;
+  --link: #B79CFF;
+  --accent: #B79CFF;
+  --card-border: #ffffff1f;
+  --soft: #ffffff14;
+  --field-bg: #00000040;
+  --field-border: #ffffff30;
+  --ghost-bg: #ffffff1c;
+  --ghost-hover: #ffffff30;
+  --ghost-fg: #ffffff;
+  --switch-off: #ffffff30;
+  --tabbar-bg: #1b1035ee;
+  --avatar-bg: #B79CFF;
+  /* Warna isian: tetap sama di kedua tema agar teks gelap di atasnya terbaca */
+  --pink-fill: #FF9ED8;
+  --gold-fill: #FFD86B;
   color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --lilac: #3b2a63;
+  --lavender: #5f4b96;
+  --pink: #b0307f;
+  --gold: #8a5a00;
+  --glass: #ffffff;
+  --bg: #F4EFFF;
+  --bg-glow: #e4d8ff;
+  --heading: #1B1035;
+  --link: #5b2fc4;
+  --accent: #6C3FD1;
+  --card-border: #d9ccf5;
+  --soft: #6c3fd114;
+  --field-bg: #f7f3ff;
+  --field-border: #b9a8e6;
+  --ghost-bg: #6c3fd11f;
+  --ghost-hover: #6c3fd133;
+  --ghost-fg: #3f2392;
+  --switch-off: #b9a8e6;
+  --tabbar-bg: #ffffffee;
+  color-scheme: light;
 }

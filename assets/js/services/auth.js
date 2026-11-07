@@ -1,7 +1,9 @@
 import {
-  onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
+  onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail,
+  GoogleAuthProvider, signInWithPopup, getAdditionalUserInfo,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import { auth } from './firebase.js';
+import { t } from '../i18n.js';
 
 const listeners = new Set();
 
@@ -16,13 +18,15 @@ export const register = (email, password) => createUserWithEmailAndPassword(auth
 export const login = (email, password) => signInWithEmailAndPassword(auth, email, password);
 export const logout = () => signOut(auth);
 
-const MESSAGES = {
-  'auth/invalid-email': 'Format email belum benar.',
-  'auth/invalid-credential': 'Email atau password salah.',
-  'auth/email-already-in-use': 'Email ini sudah terdaftar. Coba masuk.',
-  'auth/weak-password': 'Password minimal 6 karakter.',
-  'auth/too-many-requests': 'Terlalu banyak percobaan. Coba lagi beberapa menit lagi.',
-  'auth/operation-not-allowed': 'Login Email/Password belum diaktifkan di Firebase.',
-  'auth/network-request-failed': 'Koneksi bermasalah. Periksa internet kamu.',
+export const authMessage = (err) => {
+  const key = `auth.${String(err.code ?? '').replace('auth/', '')}`;
+  const text = t(key);
+  return text === key ? t('auth.unknown', { code: err.code ?? 'unknown' }) : text;
 };
-export const authMessage = (err) => MESSAGES[err.code] ?? `Terjadi kesalahan (${err.code ?? 'unknown'}).`;
+export const resetPassword = (email) => sendPasswordResetEmail(auth, email);
+
+/** Masuk dengan Google. Hasilnya menyertakan isNew (akun baru) supaya diajak berkenalan dulu. */
+export async function loginWithGoogle() {
+  const cred = await signInWithPopup(auth, new GoogleAuthProvider());
+  return { user: cred.user, isNew: !!getAdditionalUserInfo(cred)?.isNewUser };
+}

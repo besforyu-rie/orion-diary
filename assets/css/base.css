@@ -1,17 +1,22 @@
 *, *::before, *::after { box-sizing: border-box; }
 body {
   margin: 0; min-height: 100vh; color: var(--lilac); font-family: var(--font-body);
-  background: radial-gradient(circle at 50% 0, #3a1f78 0, transparent 55%), var(--night);
+  background: radial-gradient(circle at 50% 0, var(--bg-glow) 0, transparent 55%), var(--bg);
   padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0);
 }
-h1, h2, h3 { font-family: var(--font-display); color: #fff; margin: 0 0 .4em; line-height: 1.1; }
+h1, h2, h3 { font-family: var(--font-display); color: var(--heading); margin: 0 0 .4em; line-height: 1.1; }
 h1 { font-size: clamp(32px, 6vw, 56px); }
-a { color: var(--lavender); }
+a { color: var(--link); }
+.skip { position: absolute; left: -999px; top: 8px; z-index: 30; padding: 10px 16px; border-radius: 12px; background: var(--royal); color: #fff; }
+.skip:focus { left: 8px; }
 .nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; flex-wrap: wrap; }
-.logo { font: 600 22px var(--font-display); color: #fff; text-decoration: none; }
-.nav-links { display: flex; gap: 6px; }
-.nav-links a { padding: 10px 14px; border-radius: 20px; text-decoration: none; color: var(--lilac); }
-.nav-links a[aria-current="page"] { background: var(--royal); color: #fff; }
+.logo { font: 600 22px var(--font-display); color: var(--heading); text-decoration: none; }
+.nav-links { display: flex; gap: 6px; flex-wrap: wrap; }
+.nav-links a { position: relative; padding: 10px 14px; border-radius: 12px; text-decoration: none; color: var(--lilac); }
+.nav-links a:hover { color: var(--heading); }
+.nav-links a[aria-current="page"] { color: var(--heading); }
+.nav-links a[aria-current="page"]::after { content: ""; position: absolute; left: 14px; right: 14px; bottom: 4px; height: 2px; border-radius: 2px; background: var(--lavender); }
+.nav-links a:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .page { max-width: 960px; margin: 0 auto; padding: 24px 20px 60px; }
 .hand { font-family: var(--font-hand); }
 .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }

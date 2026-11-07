@@ -1,0 +1,191 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Ganti dengan UID akun Aretha (Firebase Console > Authentication > Users > kolom "User UID").
+    function isOwner() {
+      return request.auth != null && request.auth.uid == 'ZJxwwSUIU4QJndUjKOTpVRhURhH2';
+    }
+    function isUser(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+    function signedIn() {
+      return request.auth != null;
+    }
+    // Anggota sebuah ruang bersama (Bestie Space): punya dokumen di spaces/{sid}/members/{uid}.
+    function isMember(sid) {
+      return signedIn() && exists(/databases/$(database)/documents/spaces/$(sid)/members/$(request.auth.uid));
+    }
+
+    // Diary dan data lain di bawah users/{uid}: privat, hanya pemilik akun.
+    // Koleksi "albums" dikecualikan di sini karena punya aturan sendiri di bawah.
+    match /users/{uid}/{col}/{rest=**} {
+      allow read, write: if isUser(uid) && col != 'albums';
+    }
+
+    // Album: metadata (judul, surat, dedikasi, dll.)
+    match /users/{uid}/albums/{albumId} {
+      allow read, delete: if isUser(uid);
+      allow create, update: if isUser(uid)
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 80
+        && (!('photoCount' in request.resource.data)
+            || (request.resource.data.photoCount is int
+                && request.resource.data.photoCount >= 0
+                && request.resource.data.photoCount <= 100));
+    }
+
+    // Isi album: satu dokumen per foto ATAU per halaman teks.
+    // Foto: sudah dikecilkan di browser (base64 JPEG ~150 KB; batas 900.000 karakter, di bawah 1 MiB per dokumen).
+    // Halaman teks: { kind: 'note', text } maks. 450 huruf.
+    match /users/{uid}/albums/{albumId}/photos/{photoId} {
+      allow read, delete: if isUser(uid);
+      allow create, update: if isUser(uid) && (
+        // halaman teks
+        ('kind' in request.resource.data
+          && request.resource.data.kind == 'note'
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 450)
+        ||
+        // foto
+        (request.resource.data.data is string
+          && request.resource.data.data.size() > 0
+          && request.resource.data.data.size() <= 900000
+          && request.resource.data.data.matches('^data:image/(jpeg|webp|png);base64,.*')
+          && (!('caption' in request.resource.data)
+              || (request.resource.data.caption is string && request.resource.data.caption.size() <= 120))
+          && (!('alt' in request.resource.data)
+              || (request.resource.data.alt is string && request.resource.data.alt.size() <= 200)))
+      );
+    }
+
+    // Bestie Space: ruang bersama. Hanya anggota yang bisa membaca; diary pribadi tidak pernah ada di sini.
+    match /spaces/{sid} {
+      allow read: if isMember(sid);
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 60
+        && request.resource.data.tagline is string && request.resource.data.tagline.size() <= 80;
+      allow update: if signedIn()
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'tagline'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 60
+        && request.resource.data.tagline is string && request.resource.data.tagline.size() <= 80;
+
+      match /members/{mid} {
+        allow read: if isMember(sid);
+        allow create: if signedIn() && mid == request.auth.uid
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40
+          && (
+            // pembuat ruang (ruangnya dibuat di batch yang sama)
+            (request.resource.data.role == 'owner'
+              && getAfter(/databases/$(database)/documents/spaces/$(sid)).data.createdBy == request.auth.uid)
+            ||
+            // sahabat dengan undangan yang masih berlaku untuk emailnya
+            (request.resource.data.role == 'member'
+              && request.resource.data.inviteToken is string
+              && get(/databases/$(database)/documents/spaceInvites/$(request.resource.data.inviteToken)).data.spaceId == sid
+              && get(/databases/$(database)/documents/spaceInvites/$(request.resource.data.inviteToken)).data.status == 'pending'
+              && get(/databases/$(database)/documents/spaceInvites/$(request.resource.data.inviteToken)).data.expiresAt > request.time.toMillis()
+              && get(/databases/$(database)/documents/spaceInvites/$(request.resource.data.inviteToken)).data.email == request.auth.token.email.lower())
+          );
+        allow update: if signedIn() && mid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40;
+        allow delete: if signedIn() && mid == request.auth.uid;
+      }
+
+      match /posts/{pid} {
+        allow read: if isMember(sid);
+        allow create: if isMember(sid)
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.authorName is string
+          && request.resource.data.authorName.size() > 0 && request.resource.data.authorName.size() <= 40
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 80
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000
+          && request.resource.data.hearts == []
+          && (!('mood' in request.resource.data)
+              || (request.resource.data.mood is string && request.resource.data.mood.size() <= 8));
+        // Anggota lain hanya boleh menambah/mencabut hati milik sendiri.
+        allow update: if isMember(sid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hearts'])
+          && request.resource.data.hearts is list
+          && request.resource.data.hearts.size() <= 50
+          && request.resource.data.hearts.toSet().difference(resource.data.hearts.toSet()).hasOnly([request.auth.uid])
+          && resource.data.hearts.toSet().difference(request.resource.data.hearts.toSet()).hasOnly([request.auth.uid]);
+        allow delete: if isMember(sid) && resource.data.authorId == request.auth.uid;
+
+        match /notes/{nid} {
+          allow read: if isMember(sid);
+          allow create: if isMember(sid)
+            && request.resource.data.authorId == request.auth.uid
+            && request.resource.data.authorName is string
+            && request.resource.data.authorName.size() > 0 && request.resource.data.authorName.size() <= 40
+            && request.resource.data.text is string
+            && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 300;
+          allow delete: if isMember(sid) && resource.data.authorId == request.auth.uid;
+        }
+      }
+    }
+
+    // Undangan ke ruang bersama. Id dokumen = token acak yang ada di tautan; berlaku untuk satu email.
+    match /spaceInvites/{token} {
+      allow get: if signedIn();
+      // anggota melihat undangan ruangnya; sahabat hanya melihat undangan untuk emailnya sendiri
+      allow list: if signedIn() && (isMember(resource.data.spaceId)
+        || resource.data.email == request.auth.token.email.lower());
+      allow create: if signedIn()
+        && isMember(request.resource.data.spaceId)
+        && request.resource.data.inviterId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.email is string
+        && request.resource.data.email.size() >= 3 && request.resource.data.email.size() <= 120
+        && request.resource.data.message is string && request.resource.data.message.size() <= 200
+        && request.resource.data.expiresAt is int
+        && request.resource.data.expiresAt <= request.time.toMillis() + 8 * 86400000;
+      allow update: if signedIn() && (
+        // anggota membatalkan undangan
+        (isMember(resource.data.spaceId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          && request.resource.data.status == 'cancelled')
+        ||
+        // sahabat yang diundang menerimanya
+        (resource.data.status == 'pending'
+          && resource.data.email == request.auth.token.email.lower()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptedBy'])
+          && request.resource.data.status == 'accepted'
+          && request.resource.data.acceptedBy == request.auth.uid)
+        ||
+        // sahabat yang diundang menolaknya
+        (resource.data.status == 'pending'
+          && resource.data.email == request.auth.token.email.lower()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          && request.resource.data.status == 'declined')
+      );
+    }
+
+    // Ucapan teman: siapa saja boleh mengirim, hanya Aretha yang membaca semua, membalas, dan memilih yang tampil.
+    match /wishes/{id} {
+      allow read: if isOwner() || resource.data.shared == true;
+      allow create: if request.resource.data.keys().hasOnly(['name', 'text', 'reply', 'shared', 'createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 40
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 500
+        && request.resource.data.reply == ''
+        && request.resource.data.shared == false
+        && request.resource.data.createdAt == request.time;
+      allow update: if isOwner()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reply', 'shared'])
+        && request.resource.data.reply.size() <= 500;
+      allow delete: if isOwner();
+    }
+  }
+}

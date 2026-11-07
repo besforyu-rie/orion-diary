@@ -1,0 +1,31 @@
+{
+  "subtitle": "Lyra Moon · streamer fiksi orisinal · game santai, kata-kata baik & teh tengah malam.",
+  "persona": {
+    "badge": "Comfort orbit-ku",
+    "name": "Lyra Moon ☾",
+    "quote": "“Kamu nggak harus bersinar tiap malam untuk tetap jadi bintang.”",
+    "bio": "Penjaga bulan yang lembut, dengan bakat tersesat di game-game santai.",
+    "portrait": "assets/images/figma/lyra.webp",
+    "note": "Persona fiksi orisinal. Tidak berafiliasi dengan siapa pun."
+  },
+  "gathering": {
+    "when": "Malam ini · 20.00 WIB",
+    "title": "Stardew, camilan & obrolan lembut",
+    "text": "Bawa tehmu. Kita dekorasi peternakan bulan."
+  },
+  "week": [
+    { "id": "w1", "day": "SAB 07", "time": "20:00", "title": "Stardew & obrolan lembut", "meta": "Game santai · 2 jam · WIB" },
+    { "id": "w2", "day": "SEN 09", "time": "21:00", "title": "Klub sketsa cahaya bulan", "meta": "Stream gambar · 90 menit · WIB" },
+    { "id": "w3", "day": "RAB 11", "time": "20:30", "title": "Lagu untuk bintang yang ngantuk", "meta": "Karaoke akustik · 2 jam · WIB" }
+  ],
+  "moments": [
+    { "date": "2 Nov", "length": "01:14:08", "title": "Kaburnya sapi bulan", "text": "Aku ketawa sampai tehku dingin.", "tag": "cozychaos" },
+    { "date": "29 Okt", "length": "00:42:17", "title": "Pengingat yang kubutuhkan", "text": "“Istirahat juga bagian dari bertumbuh.”", "tag": "kindwords" }
+  ],
+  "words": { "text": "“Cahaya kecil tetaplah cahaya. Jangan bandingkan lilinmu dengan bulan.”", "source": "Lyra Moon · obrolan bulan, 29 Oktober 2026 · disimpan Aretha" },
+  "art": { "src": "assets/images/figma/lyra.webp", "caption": "penjaga bulan dengan mug hangat ☾", "credit": "Ilustrasi orisinal. Karya penggemar pribadi, bukan karya resmi." },
+  "wishlist": [
+    { "text": "Gantungan kunci bintang lilac", "note": "Menabung" },
+    { "text": "Lampu meja bentuk bulan", "note": "Suatu hari nanti" }
+  ]
+}

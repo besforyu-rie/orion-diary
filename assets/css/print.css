@@ -1,0 +1,18 @@
+/* Tampilan cetak untuk Ekspor PDF: hanya #print-root yang ikut tercetak. */
+#print-root { display: none; }
+@media print {
+  @page { margin: 18mm 16mm; }
+  body.printing { background: #fff !important; padding: 0; color: #1b1035; }
+  body.printing > *:not(#print-root) { display: none !important; }
+  body.printing #print-root { display: block; font: 400 11pt/1.6 Nunito, system-ui, sans-serif; color: #1b1035; }
+  #print-root h1, #print-root h2 { color: #1b1035; font-family: Fredoka, system-ui, sans-serif; }
+  .print-head { margin-bottom: 20pt; padding-bottom: 10pt; border-bottom: 2px solid #6C3FD1; }
+  .print-head h1 { font-size: 26pt; margin: 0 0 4pt; }
+  .print-head p { margin: 0; color: #5f4b96; font-size: 10pt; }
+  .print-entry { break-inside: avoid; margin: 0 0 20pt; padding-bottom: 14pt; border-bottom: 1px solid #d9ccf5; }
+  .print-entry h2 { font-size: 16pt; margin: 2pt 0 6pt; }
+  .print-meta { margin: 0; font-size: 9pt; letter-spacing: .04em; color: #5f4b96; }
+  .print-body { white-space: pre-wrap; }
+  .print-body.hand { font: 500 15pt/1.4 Caveat, cursive; }
+  .print-tags { margin: 8pt 0 0; font-size: 9pt; color: #6C3FD1; }
+}

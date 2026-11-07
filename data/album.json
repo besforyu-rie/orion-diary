@@ -1,19 +1,45 @@
 {
+  "id": "ultah-aretha",
+  "title": "Little things, big feelings",
   "to": "Aretha",
   "from": "Cheese",
   "date": "2 Desember",
-  "cover": { "label": "ARETHA’S MEMORY ALBUM", "title": "Little things, big feelings" },
+  "cover": {
+    "label": "ARETHA’S MEMORY ALBUM",
+    "title": "Little things, big feelings"
+  },
   "dedication": "Selamat ulang tahun! Buka halaman demi halaman ya. Semua isinya buat kamu.",
   "photos": [
-    { "src": "", "caption": "kita di hari itu ✦" },
-    { "src": "", "caption": "inside joke kita" },
-    { "src": "", "caption": "momen favoritku" },
-    { "src": "", "caption": "kita berdua" },
-    { "src": "", "caption": "selalu begini ya" }
+    {
+      "src": "assets/images/album/foto1.jpg",
+      "caption": "sesi foto di Lumière Studio ✦",
+      "focus": "50% 50%"
+    },
+    {
+      "src": "assets/images/album/foto2.jpg",
+      "caption": "malam di tribun",
+      "focus": "50% 50%"
+    },
+    {
+      "src": "assets/images/album/foto3.jpg",
+      "caption": "duduk santai di sofa",
+      "focus": "50% 50%"
+    },
+    {
+      "src": "assets/images/album/foto4.jpg",
+      "caption": "naik kereta bareng",
+      "focus": "50% 50%"
+    },
+    {
+      "src": "assets/images/album/foto5.jpg",
+      "caption": "empat peri di taman",
+      "focus": "50% 50%"
+    }
   ],
   "letter": [
-    "Aretha, terima kasih sudah jadi orang yang selalu ada.",
-    "Semoga tahun ini penuh hal baik, tawa, dan bintang-bintang kecil yang bikin kamu senyum."
+    "Selamat ultah ya, Jalin. Ga kerasa udah hampir setahun aku kenal kamu. Semoga kita bisa sahabatan terus yaa.",
+    "Lopyuuu adek Jalinnn (keinget Mita). Semoga apa yang kamu kejar segera terwujud dan selalu dimudahkan. Aaminn.",
+    "Sehat selalu, panjang umur, dan rezekinya lancar terus, aamiin."
   ],
   "ending": "Masih ada halaman kosong untuk cerita kita tahun depan ✦"
 }
